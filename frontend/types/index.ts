@@ -7,18 +7,30 @@ export interface Topic {
   engagement: number
   category: string
   tags: string[]
-  timestamp: string
   topic: string
+  author: string
+  timestamp: string
 }
 
 export interface Stats {
-  platform_stats: {
-    [key: string]: number
-  }
-  category_stats: {
-    [key: string]: number
-  }
+  platform_stats: { [key: string]: number }
+  category_stats: { [key: string]: number }
   total_topics_7d: number
+  total_topics_all_time: number
+}
+
+export interface PlatformFilterProps {
+  selectedPlatforms: string[]
+  onPlatformChange: (platforms: string[]) => void
+  topics: Topic[]
+  stats?: Stats
+}
+
+export interface TopicFilterProps {
+  selectedTopics: string[]
+  onTopicChange: (topics: string[]) => void
+  selectedPlatforms: string[]
+  allTopics: Topic[]
 }
 
 export interface TrendingCardProps {
@@ -30,12 +42,12 @@ export interface StatsCardProps {
   title: string
   value: number
   icon: React.ReactNode
-  color: 'blue' | 'green' | 'orange' | 'red' | 'purple'
+  color: 'blue' | 'green' | 'red' | 'orange' | 'purple'
 }
 
-export interface PlatformFilterProps {
-  selectedPlatform: string
-  onPlatformChange: (platform: string) => void
-  topics: Topic[]
-  stats?: Stats
+export interface SortFilterProps {
+  selectedSort: string
+  onSortChange: (sort: string) => void
+  selectedOrder: string
+  onOrderChange: (order: string) => void
 }

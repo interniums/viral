@@ -1,50 +1,159 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { TrendingUp, BarChart3, Globe, Zap } from 'lucide-react'
 import TrendingCard from '../components/TrendingCard'
 import StatsCard from '../components/StatsCard'
 import PlatformFilter from '../components/PlatformFilter'
 import TopicFilter from '../components/TopicFilter'
+import SortFilter from '../components/SortFilter'
 import { Topic, Stats } from '../types'
 
+// Constants
+const DEFAULT_PLATFORMS = ['Reddit', 'YouTube', 'News', 'Instagram', 'Facebook', 'Telegram']
+const INITIAL_DISPLAY_COUNT = 50
+const LOAD_MORE_INCREMENT = 50
+const SCROLL_THRESHOLD = 300
+const UPDATE_INTERVAL = 300000 // 5 minutes
+const DB_CHECK_INTERVAL = 60000 // 1 minute
+
+// Loading skeleton components
+const StatsSkeleton = () => (
+  <div className="card p-6 border-2 bg-white">
+    <div className="flex items-center justify-between">
+      <div>
+        <div className="h-4 rounded w-20 mb-2 animate-pulse bg-gray-200"></div>
+        <div className="h-8 rounded w-16 animate-pulse bg-gray-200"></div>
+      </div>
+      <div className="w-6 h-6 rounded animate-pulse bg-gray-200"></div>
+    </div>
+  </div>
+)
+
+const TrendingCardSkeleton = ({ index }: { index: number }) => (
+  <div key={`skeleton-${index}`} className="trending-card bg-white">
+    <div className="flex items-start justify-between mb-4">
+      <div className="flex items-center space-x-2">
+        <div className="w-8 h-8 rounded animate-pulse bg-gray-200"></div>
+        <div className="w-16 h-6 rounded animate-pulse bg-gray-200"></div>
+      </div>
+      <div className="w-20 h-6 rounded animate-pulse bg-gray-200"></div>
+    </div>
+    <div className="h-6 rounded mb-2 animate-pulse bg-gray-200"></div>
+    <div className="h-4 rounded mb-2 animate-pulse bg-gray-200"></div>
+    <div className="h-4 rounded mb-4 w-3/4 animate-pulse bg-gray-200"></div>
+    <div className="flex items-center justify-between">
+      <div className="w-16 h-4 rounded animate-pulse bg-gray-200"></div>
+      <div className="w-12 h-4 rounded animate-pulse bg-gray-200"></div>
+    </div>
+  </div>
+)
+
 export default function Home() {
+  // State management
   const [topics, setTopics] = useState<Topic[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
-  const [selectedPlatform, setSelectedPlatform] = useState<string>('all')
-  const [selectedTopic, setSelectedTopic] = useState<string>('all')
+  const [error, setError] = useState<string | null>(null)
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(DEFAULT_PLATFORMS)
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([])
+  const [selectedSort, setSelectedSort] = useState<string>('random')
+  const [selectedOrder, setSelectedOrder] = useState<string>('desc')
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [lastDbUpdate, setLastDbUpdate] = useState<string | null>(null)
-  const [displayCount, setDisplayCount] = useState(50)
+  const [displayCount, setDisplayCount] = useState(INITIAL_DISPLAY_COUNT)
   const [showLoadMore, setShowLoadMore] = useState(true)
   const [showScrollToTop, setShowScrollToTop] = useState(false)
 
-  const fetchAllTrendingTopics = async () => {
-    try {
-      console.log('🔄 Fetching ALL trending topics from API...')
-      const response = await fetch('/api/trending/all')
-      const data = await response.json()
+  // Grab scrolling functionality
+  const [isDragging, setIsDragging] = useState(false)
+  const [startX, setStartX] = useState(0)
+  const [scrollLeft, setScrollLeft] = useState(0)
+  const [showLeftFade, setShowLeftFade] = useState(false)
+  const [showRightFade, setShowRightFade] = useState(false)
+  const statsContainerRef = useRef<HTMLDivElement>(null)
 
-      if (data.success) {
-        console.log(`✅ Fetched ${data.topics.length} ALL topics from API (cached: ${data.cached})`)
-        setTopics(data.topics)
-        setLastUpdate(new Date())
-      } else {
-        console.error('❌ API returned error:', data.error)
-      }
-    } catch (error) {
-      console.error('❌ Error fetching all trending topics:', error)
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!statsContainerRef.current) return
+    setIsDragging(true)
+    setStartX(e.pageX - statsContainerRef.current.offsetLeft)
+    setScrollLeft(statsContainerRef.current.scrollLeft)
+  }
+
+  const handleMouseLeave = () => {
+    setIsDragging(false)
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !statsContainerRef.current) return
+    e.preventDefault()
+    const x = e.pageX - statsContainerRef.current.offsetLeft
+    const walk = (x - startX) * 2 // Scroll speed multiplier
+    statsContainerRef.current.scrollLeft = scrollLeft - walk
+  }
+
+  // Touch event handlers for mobile
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (!statsContainerRef.current) return
+    setIsDragging(true)
+    setStartX(e.touches[0].pageX - statsContainerRef.current.offsetLeft)
+    setScrollLeft(statsContainerRef.current.scrollLeft)
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || !statsContainerRef.current) return
+    e.preventDefault()
+    const x = e.touches[0].pageX - statsContainerRef.current.offsetLeft
+    const walk = (x - startX) * 2 // Scroll speed multiplier
+    statsContainerRef.current.scrollLeft = scrollLeft - walk
+  }
+
+  const handleTouchEnd = () => {
+    setIsDragging(false)
+  }
+
+  const handleScroll = () => {
+    if (statsContainerRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = statsContainerRef.current
+      setShowLeftFade(scrollLeft > 0)
+      setShowRightFade(scrollLeft < scrollWidth - clientWidth - 1)
     }
   }
 
-  const fetchStats = async () => {
+  // Check fade state on mount and resize
+  useEffect(() => {
+    handleScroll()
+    window.addEventListener('resize', handleScroll)
+    return () => window.removeEventListener('resize', handleScroll)
+  }, [])
+
+  // API fetch functions
+  const fetchAllTrendingTopics = useCallback(async () => {
+    try {
+      setError(null)
+      const response = await fetch(`/api/trending/all?sort=${selectedSort}&order=${selectedOrder}`)
+      const data = await response.json()
+
+      if (data.success) {
+        setTopics(data.topics)
+        setLastUpdate(new Date())
+      } else {
+        setError(data.error || 'Failed to fetch trending topics')
+      }
+    } catch (error) {
+      setError('Network error while fetching trending topics')
+      console.error('❌ Error fetching all trending topics:', error)
+    }
+  }, [selectedSort, selectedOrder])
+
+  const fetchStats = useCallback(async () => {
     try {
       const response = await fetch('/api/stats', {
-        headers: {
-          'Cache-Control': 'no-cache',
-          Pragma: 'no-cache',
-        },
+        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
       })
       const data = await response.json()
       if (data.success) {
@@ -55,107 +164,126 @@ export default function Home() {
     } catch (error) {
       console.error('❌ Error fetching stats:', error)
     }
-  }
+  }, [])
 
-  const fetchLastUpdate = async () => {
+  const fetchLastUpdate = useCallback(async () => {
     try {
       const response = await fetch('/api/last-update', {
-        headers: {
-          'Cache-Control': 'no-cache',
-          Pragma: 'no-cache',
-        },
+        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
       })
       const data = await response.json()
       if (data.success) {
         setLastDbUpdate(data.last_update)
-        console.log('🕒 Last database update:', data.formatted)
       }
     } catch (error) {
       console.error('Error fetching last update:', error)
     }
-  }
+  }, [])
 
-  const handleInitialLoad = async () => {
+  // Computed values
+  const filteredTopics = useMemo(() => {
+    return topics.filter((topic) => {
+      const platformMatch =
+        selectedPlatforms.length === 0 ||
+        selectedPlatforms.some((platform) => topic.platform.toLowerCase() === platform.toLowerCase())
+      const topicMatch = selectedTopics.length === 0 || selectedTopics.some((topicName) => topic.topic === topicName)
+      return platformMatch && topicMatch
+    })
+  }, [topics, selectedPlatforms, selectedTopics])
+
+  const displayedTopics = useMemo(() => filteredTopics.slice(0, displayCount), [filteredTopics, displayCount])
+
+  const hasMoreTopics = useMemo(() => filteredTopics.length > displayCount, [filteredTopics.length, displayCount])
+
+  // Event handlers
+  const handleInitialLoad = useCallback(async () => {
     setLoading(true)
-    await Promise.all([fetchAllTrendingTopics(), fetchStats(), fetchLastUpdate()])
-    setLoading(false)
-  }
+    setError(null)
+    try {
+      await Promise.all([fetchAllTrendingTopics(), fetchStats(), fetchLastUpdate()])
+    } catch (error) {
+      setError('Failed to load initial data')
+    } finally {
+      setLoading(false)
+    }
+  }, [fetchAllTrendingTopics, fetchStats, fetchLastUpdate])
 
+  const handleLoadMore = useCallback(() => {
+    const newCount = Math.min(displayCount + LOAD_MORE_INCREMENT, filteredTopics.length)
+    setDisplayCount(newCount)
+    setShowLoadMore(newCount < filteredTopics.length)
+  }, [displayCount, filteredTopics.length])
+
+  const handlePlatformChange = useCallback((platforms: string[]) => {
+    setSelectedPlatforms(platforms)
+    setDisplayCount(INITIAL_DISPLAY_COUNT)
+    setShowLoadMore(true)
+  }, [])
+
+  const handleSortChange = useCallback((sort: string) => {
+    setSelectedSort(sort)
+    setDisplayCount(INITIAL_DISPLAY_COUNT)
+    setShowLoadMore(true)
+  }, [])
+
+  const handleOrderChange = useCallback((order: string) => {
+    setSelectedOrder(order)
+    setDisplayCount(INITIAL_DISPLAY_COUNT)
+    setShowLoadMore(true)
+  }, [])
+
+  const scrollToTop = useCallback(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [])
+
+  // Effects
   useEffect(() => {
-    // Load initial data
     handleInitialLoad()
 
-    // Set up polling for updates
-    const interval = setInterval(() => {
-      fetchAllTrendingTopics()
-    }, 300000) // Update every 5 minutes (less frequent since we have server cache)
-
-    // Set up database update checking
+    const interval = setInterval(fetchAllTrendingTopics, UPDATE_INTERVAL)
     const dbUpdateInterval = setInterval(async () => {
       try {
         await fetchLastUpdate()
-
-        // Check if we have a new database update
         if (lastDbUpdate) {
           const savedLastDbUpdate = localStorage.getItem('viral_last_db_update')
           if (!savedLastDbUpdate || savedLastDbUpdate !== lastDbUpdate) {
-            console.log('🔄 New database update detected, refreshing content...')
             localStorage.setItem('viral_last_db_update', lastDbUpdate)
-
-            // Fetch fresh data (server cache will be cleared by background update)
-            await fetchAllTrendingTopics()
-            await fetchStats()
+            await Promise.all([fetchAllTrendingTopics(), fetchStats()])
           }
         }
       } catch (error) {
         console.error('Error checking for database updates:', error)
       }
-    }, 60000) // Check every 1 minute for database updates
+    }, DB_CHECK_INTERVAL)
 
     return () => {
       clearInterval(interval)
       clearInterval(dbUpdateInterval)
     }
-  }, [lastDbUpdate])
+  }, [handleInitialLoad, fetchAllTrendingTopics, fetchLastUpdate, fetchStats, lastDbUpdate])
 
-  const filteredTopics = topics.filter((topic) => {
-    const platformMatch = selectedPlatform === 'all' || topic.platform.toLowerCase() === selectedPlatform.toLowerCase()
-    const topicMatch = selectedTopic === 'all' || topic.topic === selectedTopic
-    return platformMatch && topicMatch
-  })
+  useEffect(() => {
+    if (topics.length > 0) {
+      fetchAllTrendingTopics()
+    }
+  }, [selectedSort, selectedOrder, fetchAllTrendingTopics])
 
-  const displayedTopics = filteredTopics.slice(0, displayCount)
-  const hasMoreTopics = filteredTopics.length > displayCount
+  useEffect(() => {
+    if (topics.length > 0 && selectedTopics.length === 0) {
+      const allAvailableTopics = Array.from(new Set(topics.map((topic) => topic.topic))).filter(
+        (topic) => topic && topic !== ''
+      )
+      setSelectedTopics(allAvailableTopics)
+    }
+  }, [topics])
 
-  const handleLoadMore = () => {
-    // Show more topics from the full dataset
-    const newCount = Math.min(displayCount + 50, filteredTopics.length)
-    setDisplayCount(newCount)
-    setShowLoadMore(newCount < filteredTopics.length)
-  }
-
-  const handlePlatformChange = (platform: string) => {
-    setSelectedPlatform(platform)
-    setDisplayCount(50) // Reset to initial count when platform changes
-    setShowLoadMore(true)
-  }
-
-  const scrollToTop = () => {
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth',
-    })
-  }
-
-  // Handle scroll events
   useEffect(() => {
     const handleScroll = () => {
       const scrollTop = window.pageYOffset || document.documentElement.scrollTop
-      setShowScrollToTop(scrollTop > 300) // Show button after scrolling 300px
+      setShowScrollToTop(scrollTop > SCROLL_THRESHOLD)
     }
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      // Scroll to top when Home key is pressed
       if (event.key === 'Home') {
         event.preventDefault()
         scrollToTop()
@@ -169,7 +297,105 @@ export default function Home() {
       window.removeEventListener('scroll', handleScroll)
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [])
+  }, [scrollToTop])
+
+  // Render helpers
+  const renderStatsCards = () => {
+    if (loading) {
+      return Array.from({ length: 7 }).map((_, index) => <StatsSkeleton key={index} />)
+    }
+
+    const platformStats = [
+      {
+        title: 'Total Topics (7d)',
+        value: stats?.total_topics_7d || 0,
+        icon: <Globe className="w-6 h-6" />,
+        color: 'blue' as const,
+      },
+      {
+        title: 'Reddit Topics',
+        value: stats?.platform_stats?.Reddit || 0,
+        icon: <span>🔴</span>,
+        color: 'orange' as const,
+      },
+      {
+        title: 'News Articles',
+        value: stats?.platform_stats?.News || 0,
+        icon: <span>📰</span>,
+        color: 'green' as const,
+      },
+      {
+        title: 'YouTube Videos',
+        value: stats?.platform_stats?.YouTube || 0,
+        icon: <span>📺</span>,
+        color: 'red' as const,
+      },
+      {
+        title: 'Instagram Posts',
+        value: stats?.platform_stats?.Instagram || 0,
+        icon: <span>📸</span>,
+        color: 'purple' as const,
+      },
+      {
+        title: 'Facebook Posts',
+        value: stats?.platform_stats?.Facebook || 0,
+        icon: <span>📘</span>,
+        color: 'blue' as const,
+      },
+      {
+        title: 'Telegram Posts',
+        value: stats?.platform_stats?.Telegram || 0,
+        icon: <span>📱</span>,
+        color: 'green' as const,
+      },
+    ]
+
+    return platformStats.map((stat, index) => (
+      <StatsCard key={index} title={stat.title} value={stat.value} icon={stat.icon} color={stat.color} />
+    ))
+  }
+
+  const renderTrendingCards = () => {
+    if (loading) {
+      return Array.from({ length: 12 }).map((_, index) => <TrendingCardSkeleton key={index} index={index} />)
+    }
+
+    return displayedTopics.map((topic, index) => (
+      <TrendingCard key={`${topic.platform}-${index}`} topic={topic} rank={index + 1} />
+    ))
+  }
+
+  const renderTopicsCount = () => {
+    if (loading) return <p className="text-gray-600">Loading trending topics...</p>
+
+    return (
+      <p className="text-gray-600">
+        Showing {Math.min(displayCount, filteredTopics.length)} of {filteredTopics.length} trending topics
+        {selectedPlatforms.length > 0 && ` from ${selectedPlatforms.map((p) => p.toLowerCase()).join(', ')}`}
+        {selectedTopics.length > 0 && ` in ${selectedTopics.map((t) => t).join(', ')}`}
+        {selectedSort !== 'random' && ` sorted by ${selectedSort}`}
+        {selectedOrder === 'desc' ? ' (descending)' : ' (ascending)'}
+      </p>
+    )
+  }
+
+  const renderEmptyState = () => {
+    if (loading || filteredTopics.length > 0) return null
+
+    return (
+      <div className="text-center py-12">
+        <Zap className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+        <h3 className="text-xl font-semibold text-gray-600 mb-2">No trending topics found</h3>
+        <p className="text-gray-500">
+          {selectedPlatforms.length === 0
+            ? 'Try refreshing to get the latest trending topics.'
+            : `No trending topics found for ${selectedPlatforms
+                .map((p) => p.toLowerCase())
+                .join(', ')}. Try selecting a different platform.`}
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl bg-gradient-to-br from-gray-50 to-gray-100">
@@ -182,204 +408,94 @@ export default function Home() {
         <p className="text-xl text-gray-600 mb-6">
           Real-time trending topics from Reddit, News, and other social platforms
         </p>
-
-        {/* Last Update */}
         <div className="flex items-center justify-center text-sm text-gray-500">
           {lastDbUpdate ? <>Last database update: {new Date(lastDbUpdate).toLocaleTimeString()}</> : <>Loading...</>}
         </div>
       </div>
 
+      {/* Error Display */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-red-600">{error}</p>
+        </div>
+      )}
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8 bg-white">
-        {loading ? (
-          // Loading skeleton for stats
-          <>
-            <div className="card p-6 border-2 bg-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="h-4 rounded w-20 mb-2 animate-pulse"></div>
-                  <div className="h-8 rounded w-16 animate-pulse"></div>
-                </div>
-                <div className="w-6 h-6 rounded animate-pulse"></div>
-              </div>
-            </div>
-            <div className="card p-6 border-2 bg-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="h-4 rounded w-20 mb-2 animate-pulse"></div>
-                  <div className="h-8 rounded w-16 animate-pulse"></div>
-                </div>
-                <div className="w-6 h-6 rounded animate-pulse"></div>
-              </div>
-            </div>
-            <div className="card p-6 border-2 bg-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="h-4 rounded w-20 mb-2 animate-pulse"></div>
-                  <div className="h-8 rounded w-16 animate-pulse"></div>
-                </div>
-                <div className="w-6 h-6 rounded animate-pulse"></div>
-              </div>
-            </div>
-            <div className="card p-6 border-2 bg-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="h-4 rounded w-20 mb-2 animate-pulse"></div>
-                  <div className="h-8 rounded w-16 animate-pulse"></div>
-                </div>
-                <div className="w-6 h-6 rounded animate-pulse"></div>
-              </div>
-            </div>
-          </>
-        ) : (
-          // Actual stats cards
-          <>
-            <StatsCard
-              title="Total Topics (7d)"
-              value={stats?.total_topics_7d || 0}
-              icon={<Globe className="w-6 h-6" />}
-              color="blue"
-            />
-            <StatsCard
-              title="Reddit Topics"
-              value={stats?.platform_stats?.Reddit || 0}
-              icon={<span>🔴</span>}
-              color="orange"
-            />
-            <StatsCard
-              title="News Articles"
-              value={stats?.platform_stats?.News || 0}
-              icon={<span>📰</span>}
-              color="green"
-            />
-            <StatsCard
-              title="YouTube Videos"
-              value={stats?.platform_stats?.YouTube || 0}
-              icon={<span>📺</span>}
-              color="red"
-            />
-          </>
+      <div className="mb-8 relative">
+        <div
+          ref={statsContainerRef}
+          onMouseDown={handleMouseDown}
+          onMouseLeave={handleMouseLeave}
+          onMouseUp={handleMouseUp}
+          onMouseMove={handleMouseMove}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onScroll={handleScroll}
+          className={`flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 cursor-grab active:cursor-grabbing select-none transition-opacity duration-200 ${
+            isDragging ? 'opacity-90' : 'opacity-100'
+          }`}
+        >
+          {renderStatsCards()}
+        </div>
+        {/* Gradient fade indicators - only show when needed */}
+        {showLeftFade && (
+          <div className="absolute left-0 top-0 bottom-4 w-8 bg-gradient-to-r from-gray-50 to-transparent pointer-events-none z-10"></div>
+        )}
+        {showRightFade && (
+          <div className="absolute right-0 top-0 bottom-4 w-8 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none z-10"></div>
         )}
       </div>
 
-      {/* Platform Filter */}
-      <div className="mb-6">
-        {loading ? (
-          <div className="rounded-lg shadow-sm border border-gray-200 p-4 bg-white">
-            <div className="h-6 rounded w-32 mb-4 animate-pulse"></div>
-            <div className="flex flex-wrap gap-2">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="w-20 h-10 rounded-lg animate-pulse"
-                  style={{ backgroundColor: '#d1d5db' }}
-                ></div>
-              ))}
-            </div>
-          </div>
-        ) : (
+      {/* Filters Section */}
+      <div className="mb-6 space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <PlatformFilter
-            selectedPlatform={selectedPlatform}
+            selectedPlatforms={selectedPlatforms}
             onPlatformChange={handlePlatformChange}
             topics={topics}
             stats={stats || undefined}
           />
-        )}
-      </div>
-
-      {/* Topic Filter */}
-      <div className="mb-8">
-        {loading ? (
-          <div className="rounded-lg shadow-sm border border-gray-200 p-4 bg-white">
-            <div className="h-6 rounded w-32 mb-4 animate-pulse"></div>
-            <div className="flex flex-wrap gap-2">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <div
-                  key={index}
-                  className="w-24 h-10 rounded-lg animate-pulse"
-                  style={{ backgroundColor: '#d1d5db' }}
-                ></div>
-              ))}
-            </div>
-          </div>
-        ) : (
           <TopicFilter
-            selectedTopic={selectedTopic}
-            onTopicChange={setSelectedTopic}
-            selectedPlatform={selectedPlatform}
+            selectedTopics={selectedTopics}
+            onTopicChange={setSelectedTopics}
+            selectedPlatforms={selectedPlatforms}
             allTopics={topics}
           />
+        </div>
+      </div>
+
+      {/* Cards Container with Sort Filter */}
+      <div className="relative pt-16 sm:pt-20">
+        <div className="absolute top-0 right-0 z-10">
+          <SortFilter
+            selectedSort={selectedSort}
+            onSortChange={handleSortChange}
+            selectedOrder={selectedOrder}
+            onOrderChange={handleOrderChange}
+          />
+        </div>
+
+        <div className="mb-4">{renderTopicsCount()}</div>
+
+        <div className="trending-grid">{renderTrendingCards()}</div>
+
+        {showLoadMore && hasMoreTopics && (
+          <div className="text-center mt-8">
+            <button onClick={handleLoadMore} className="btn-load-more text-lg">
+              Load More ({filteredTopics.length - displayCount} more)
+            </button>
+          </div>
         )}
 
-        {/* Topics Count */}
-        <div className="mt-4 text-center text-gray-600">
-          {loading ? (
-            <div className="h-4 rounded w-48 mx-auto animate-pulse"></div>
-          ) : (
-            <p>
-              Showing {displayedTopics.length} of {filteredTopics.length} trending topics
-              {selectedPlatform !== 'all' && ` from ${selectedPlatform}`}
-              {selectedTopic !== 'all' && ` in ${selectedTopic}`}
-            </p>
-          )}
-        </div>
+        {!showLoadMore && filteredTopics.length > 0 && (
+          <div className="text-center mt-8 text-gray-600">
+            <p>Showing all {filteredTopics.length} trending topics</p>
+          </div>
+        )}
+
+        {renderEmptyState()}
       </div>
-
-      {/* Trending Topics Grid */}
-      <div className="trending-grid">
-        {loading
-          ? // Loading skeleton for trending cards
-            Array.from({ length: 12 }).map((_, index) => (
-              <div key={`skeleton-${index}`} className="trending-card bg-white">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 rounded animate-pulse"></div>
-                    <div className="w-16 h-6 rounded animate-pulse"></div>
-                  </div>
-                  <div className="w-20 h-6 rounded animate-pulse"></div>
-                </div>
-                <div className="h-6 rounded mb-2 animate-pulse"></div>
-                <div className="h-4 rounded mb-2 animate-pulse"></div>
-                <div className="h-4 rounded mb-4 w-3/4 animate-pulse"></div>
-                <div className="flex items-center justify-between">
-                  <div className="w-16 h-4 rounded animate-pulse"></div>
-                  <div className="w-12 h-4 rounded animate-pulse"></div>
-                </div>
-              </div>
-            ))
-          : displayedTopics.map((topic, index) => (
-              <TrendingCard key={`${topic.platform}-${index}`} topic={topic} rank={index + 1} />
-            ))}
-      </div>
-
-      {/* Load More Button */}
-      {showLoadMore && hasMoreTopics && (
-        <div className="text-center mt-8">
-          <button onClick={handleLoadMore} className="btn-load-more text-lg">
-            Load More ({filteredTopics.length - displayCount} more)
-          </button>
-        </div>
-      )}
-
-      {/* Show total count when all loaded */}
-      {!showLoadMore && filteredTopics.length > 0 && (
-        <div className="text-center mt-8 text-gray-600">
-          <p>Showing all {filteredTopics.length} trending topics</p>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {!loading && filteredTopics.length === 0 && (
-        <div className="text-center py-12">
-          <Zap className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-600 mb-2">No trending topics found</h3>
-          <p className="text-gray-500">
-            {selectedPlatform === 'all'
-              ? 'Try refreshing to get the latest trending topics.'
-              : `No trending topics found for ${selectedPlatform}. Try selecting a different platform.`}
-          </p>
-        </div>
-      )}
 
       {/* Scroll to Top Button */}
       <div

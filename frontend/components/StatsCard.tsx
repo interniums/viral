@@ -19,7 +19,7 @@ export default function StatsCard({ title, value, icon, color }: StatsCardProps)
   }
 
   return (
-    <div className={`card p-6 border-2 ${getColorClasses(color)}`}>
+    <div className={`card p-6 border-2 min-w-[200px] flex-shrink-0 ${getColorClasses(color)}`}>
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium opacity-80">{title}</p>

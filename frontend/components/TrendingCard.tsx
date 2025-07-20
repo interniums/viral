@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { ExternalLink, TrendingUp, Clock } from 'lucide-react'
+import { ExternalLink, TrendingUp, Clock, User } from 'lucide-react'
 import { TrendingCardProps } from '../types'
+import PlatformIcon from './PlatformIcon'
 
 export default function TrendingCard({ topic, rank }: TrendingCardProps) {
   const getPlatformColor = (platform: string) => {
@@ -19,8 +20,8 @@ export default function TrendingCard({ topic, rank }: TrendingCardProps) {
   }
 
   const getScoreClass = (score: number) => {
-    if (score >= 1000) return 'score-high'
-    if (score >= 100) return 'score-medium'
+    if (score >= 10000) return 'score-high'
+    if (score >= 1000) return 'score-medium'
     return 'score-low'
   }
 
@@ -74,7 +75,10 @@ export default function TrendingCard({ topic, rank }: TrendingCardProps) {
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center space-x-2">
           <span className="text-2xl font-bold text-primary-600">#{rank}</span>
-          <span className={`platform-badge ${getPlatformColor(topic.platform)}`}>{topic.platform}</span>
+          <div className="flex items-center space-x-2">
+            <PlatformIcon platform={topic.platform} className="w-4 h-4" />
+            <span className={`platform-badge ${getPlatformColor(topic.platform)}`}>{topic.platform}</span>
+          </div>
         </div>
         <div className="flex items-center space-x-2">
           <span className={`viral-score ${getScoreClass(topic.engagement)}`}>
@@ -114,6 +118,14 @@ export default function TrendingCard({ topic, rank }: TrendingCardProps) {
           {topic.tags.length > 3 && (
             <span className="px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded-full">+{topic.tags.length - 3}</span>
           )}
+        </div>
+      )}
+
+      {/* Author */}
+      {topic.author && (
+        <div className="flex items-center text-sm text-gray-600 mb-3">
+          <User className="w-4 h-4 mr-1" />
+          <span className="truncate">{topic.author}</span>
         </div>
       )}
 

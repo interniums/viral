@@ -20,6 +20,7 @@
   /* Custom scrollbar styling */
   ::-webkit-scrollbar {
     width: 12px;
+    height: 8px; /* For horizontal scrollbars */
   }
 
   ::-webkit-scrollbar-track {
@@ -33,6 +34,51 @@
 
   ::-webkit-scrollbar-thumb:hover {
     background: #a8a8a8;
+  }
+
+  /* Horizontal scrollbar specific styles */
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: #f3f4f6;
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #9ca3af;
+  }
+
+  /* Grab scrolling styles */
+  .cursor-grab {
+    cursor: grab;
+  }
+
+  .cursor-grab:active {
+    cursor: grabbing;
+  }
+
+  .cursor-grabbing {
+    cursor: grabbing;
+  }
+
+  /* Prevent text selection during drag */
+  .select-none {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  /* Smooth scrolling for grab interactions */
+  .overflow-x-auto {
+    scroll-behavior: smooth;
   }
 }
 
@@ -84,6 +130,19 @@
 
   .platform-youtube {
     @apply bg-red-100 text-red-800;
+  }
+
+  /* Platform icon colors */
+  .platform-icon-reddit {
+    @apply text-orange-600;
+  }
+
+  .platform-icon-youtube {
+    @apply text-red-600;
+  }
+
+  .platform-icon-news {
+    @apply text-green-600;
   }
 
   .trending-card {
@@ -140,19 +199,19 @@
   }
 
   .viral-score {
-    @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-bold;
+    @apply inline-flex items-center px-2 py-1 rounded-lg text-sm font-semibold;
   }
 
   .score-high {
-    @apply bg-viral-red text-white;
+    @apply bg-red-100 text-red-800;
   }
 
   .score-medium {
-    @apply bg-viral-orange text-white;
+    @apply bg-orange-100 text-orange-800;
   }
 
   .score-low {
-    @apply bg-viral-yellow text-black;
+    @apply bg-gray-100 text-gray-800;
   }
 }
 

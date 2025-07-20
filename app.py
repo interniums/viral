@@ -2,25 +2,14 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 import os
 import json
-import time
 import threading
 import sqlite3
 from datetime import datetime, timedelta
-import requests
 import praw
 from dotenv import load_dotenv
-# Twitter API disabled for now
-# try:
-#     import tweepy
-#     TWITTER_AVAILABLE = True
-# except ImportError:
-#     print("Warning: tweepy not available. Twitter functionality will be disabled.")
-#     TWITTER_AVAILABLE = False
-TWITTER_AVAILABLE = False
 from newsapi import NewsApiClient
-from bs4 import BeautifulSoup
 from cache_manager import cache_manager, CACHE_KEYS
-from youtube_api import init_youtube, fetch_youtube_trending
+from youtube_api import init_youtube
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
@@ -48,6 +37,7 @@ def init_db():
             category TEXT,
             tags TEXT,
             topic TEXT,
+            author TEXT,
             UNIQUE(platform, title, url)
         )
     ''')
@@ -55,6 +45,12 @@ def init_db():
     # Add topic column if it doesn't exist (for existing databases)
     try:
         cursor.execute('ALTER TABLE trending_topics ADD COLUMN topic TEXT')
+    except:
+        pass  # Column already exists
+    
+    # Add author column if it doesn't exist (for existing databases)
+    try:
+        cursor.execute('ALTER TABLE trending_topics ADD COLUMN author TEXT')
     except:
         pass  # Column already exists
     
@@ -174,69 +170,75 @@ twitter_client = init_twitter()
 news_client = init_news()
 youtube_client = init_youtube()
 
-def detect_topic_category(subreddit, title):
-    """Detect topic category based on subreddit and title"""
-    subreddit_lower = subreddit.lower()
+def detect_topic_category(platform, title):
+    """Detect topic category based on platform and title"""
+    platform_lower = platform.lower()
     title_lower = title.lower()
     
     # Crypto topics
     crypto_keywords = ['crypto', 'bitcoin', 'ethereum', 'blockchain', 'defi', 'nft', 'token', 'coin']
-    if any(keyword in subreddit_lower for keyword in crypto_keywords) or any(keyword in title_lower for keyword in crypto_keywords):
+    if any(keyword in platform_lower for keyword in crypto_keywords) or any(keyword in title_lower for keyword in crypto_keywords):
         return 'crypto'
     
     # Sports topics
     sports_keywords = ['sports', 'nba', 'nfl', 'soccer', 'tennis', 'formula1', 'football', 'basketball', 'baseball']
-    if any(keyword in subreddit_lower for keyword in sports_keywords) or any(keyword in title_lower for keyword in sports_keywords):
+    if any(keyword in platform_lower for keyword in sports_keywords) or any(keyword in title_lower for keyword in sports_keywords):
         return 'sports'
     
     # Finance topics
     finance_keywords = ['finance', 'investing', 'stocks', 'wallstreet', 'economy', 'market', 'trading']
-    if any(keyword in subreddit_lower for keyword in finance_keywords) or any(keyword in title_lower for keyword in finance_keywords):
+    if any(keyword in platform_lower for keyword in finance_keywords) or any(keyword in title_lower for keyword in finance_keywords):
         return 'finance'
     
     # Culture topics
     culture_keywords = ['movies', 'music', 'art', 'books', 'television', 'fashion', 'culture', 'photography']
-    if any(keyword in subreddit_lower for keyword in culture_keywords) or any(keyword in title_lower for keyword in culture_keywords):
+    if any(keyword in platform_lower for keyword in culture_keywords) or any(keyword in title_lower for keyword in culture_keywords):
         return 'culture'
     
     # Memes & Humor topics
     meme_keywords = ['memes', 'funny', 'humor', 'jokes', 'dank', 'viral']
-    if any(keyword in subreddit_lower for keyword in meme_keywords) or any(keyword in title_lower for keyword in meme_keywords):
+    if any(keyword in platform_lower for keyword in meme_keywords) or any(keyword in title_lower for keyword in meme_keywords):
         return 'memes'
     
     # Gaming topics
     gaming_keywords = ['gaming', 'game', 'esports', 'pcgaming', 'xbox', 'playstation', 'nintendo']
-    if any(keyword in subreddit_lower for keyword in gaming_keywords) or any(keyword in title_lower for keyword in gaming_keywords):
+    if any(keyword in platform_lower for keyword in gaming_keywords) or any(keyword in title_lower for keyword in gaming_keywords):
         return 'gaming'
     
     # Technology topics
     tech_keywords = ['technology', 'tech', 'science', 'innovation', 'ai', 'machine learning']
-    if any(keyword in subreddit_lower for keyword in tech_keywords) or any(keyword in title_lower for keyword in tech_keywords):
+    if any(keyword in platform_lower for keyword in tech_keywords) or any(keyword in title_lower for keyword in tech_keywords):
         return 'technology'
     
     # Politics topics
     politics_keywords = ['politics', 'news', 'worldnews', 'government', 'election']
-    if any(keyword in subreddit_lower for keyword in politics_keywords) or any(keyword in title_lower for keyword in politics_keywords):
+    if any(keyword in platform_lower for keyword in politics_keywords) or any(keyword in title_lower for keyword in politics_keywords):
         return 'politics'
     
     # Lifestyle topics
     lifestyle_keywords = ['food', 'cooking', 'travel', 'health', 'fitness', 'lifestyle']
-    if any(keyword in subreddit_lower for keyword in lifestyle_keywords) or any(keyword in title_lower for keyword in lifestyle_keywords):
+    if any(keyword in platform_lower for keyword in lifestyle_keywords) or any(keyword in title_lower for keyword in lifestyle_keywords):
         return 'lifestyle'
     
     return 'general'
 
-def save_trending_topic(platform, title, description, url, score, engagement, category, tags, topic=None):
+def save_trending_topic(platform, title, description, url, score, engagement, category, tags, topic=None, author=None, timestamp=None):
+    """Save a trending topic to the database"""
+    if not timestamp:
+        timestamp = datetime.now().isoformat()
+    if not topic:
+        topic = 'general'
+    if not author:
+        author = 'Unknown'
+    
     conn = sqlite3.connect('viral_trends.db')
     cursor = conn.cursor()
     
-    # Use INSERT OR REPLACE to prevent duplicates
-    # This will replace existing entries with the same platform, title, and url
     cursor.execute('''
         INSERT OR REPLACE INTO trending_topics 
-        (platform, title, description, url, score, engagement, category, tags, topic, timestamp)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (platform, title, description, url, score, engagement, category, json.dumps(tags), topic, datetime.now().isoformat()))
+        (platform, title, description, url, score, engagement, category, tags, topic, author, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (platform, title, description, url, score, engagement, category, json.dumps(tags), topic, author, timestamp))
     
     conn.commit()
     conn.close()
@@ -276,6 +278,7 @@ def fetch_reddit_trending():
                                 'category': f"r/{subreddit}",
                                 'topic': topic_category,
                                 'tags': ['reddit', subreddit, topic_category],
+                                'author': post.author.name if post.author else 'Anonymous',
                                 'timestamp': datetime.fromtimestamp(post.created_utc).isoformat()
                             }
                             trending_topics.append(topic)
@@ -307,7 +310,7 @@ def fetch_reddit_trending():
             # Get recent Reddit posts from database (last 7 days)
             week_ago = datetime.now() - timedelta(days=7)
             cursor.execute('''
-                SELECT title, description, url, score, engagement, category, tags, timestamp, topic
+                SELECT title, description, url, score, engagement, category, tags, timestamp, topic, author
                 FROM trending_topics
                 WHERE platform = 'Reddit' AND timestamp > ?
                 ORDER BY engagement DESC
@@ -330,6 +333,7 @@ def fetch_reddit_trending():
                         'category': post[5],
                         'tags': json.loads(post[6]) if post[6] else [],
                         'topic': post[8] or 'general',
+                        'author': post[9] if len(post) > 9 else 'Anonymous',
                         'timestamp': post[7]
                     }
                     trending_topics.append(topic)
@@ -395,10 +399,10 @@ def fetch_news_trending():
         # Get recent news articles from database (last 7 days)
         week_ago = datetime.now() - timedelta(days=7)
         cursor.execute('''
-            SELECT title, description, url, score, engagement, category, tags, timestamp, topic
+            SELECT title, description, url, score, engagement, category, tags, timestamp, topic, author
             FROM trending_topics
             WHERE platform = 'News' AND timestamp > ?
-            ORDER BY engagement DESC
+            ORDER BY RANDOM()
             LIMIT 200
         ''', (week_ago,))
         
@@ -418,6 +422,7 @@ def fetch_news_trending():
                     'category': article[5],
                     'tags': json.loads(article[6]) if article[6] else [],
                     'topic': article[8] or 'general',
+                    'author': article[9] if len(article) > 9 else 'Unknown',
                     'timestamp': article[7]
                 }
                 trending_topics.append(topic)
@@ -460,6 +465,7 @@ def fetch_news_trending():
                     'category': article['source']['name'],
                     'topic': topic_category,
                     'tags': ['news', 'headlines', topic_category],
+                    'author': article.get('author', 'Unknown'),
                     'timestamp': article['publishedAt']
                 }
                 trending_topics.append(topic)
@@ -657,6 +663,7 @@ def fetch_youtube_trending():
                                 'category': snippet.get('categoryId', 'Video'),
                                 'topic': topic_category,
                                 'tags': video_tags,
+                                'author': snippet.get('channelTitle', 'Unknown Channel'),
                                 'timestamp': snippet['publishedAt']
                             }
                             trending_topics.append(topic)
@@ -688,10 +695,10 @@ def fetch_youtube_trending():
             # Get recent YouTube videos from database (last 7 days)
             week_ago = datetime.now() - timedelta(days=7)
             cursor.execute('''
-                SELECT title, description, url, score, engagement, category, tags, timestamp, topic
+                SELECT title, description, url, score, engagement, category, tags, timestamp, topic, author
                 FROM trending_topics
                 WHERE platform = 'YouTube' AND timestamp > ?
-                ORDER BY engagement DESC
+                ORDER BY RANDOM()
                 LIMIT ?
             ''', (week_ago, 200 - len(trending_topics)))
             
@@ -711,6 +718,7 @@ def fetch_youtube_trending():
                         'category': video[5],
                         'tags': json.loads(video[6]) if video[6] else [],
                         'topic': video[8] or 'general',
+                        'author': video[9] if len(video) > 9 else 'Unknown Channel',
                         'timestamp': video[7]
                     }
                     trending_topics.append(topic)
@@ -758,6 +766,7 @@ def update_database_with_fresh_data():
                                     'category': f"r/{subreddit}",
                                     'topic': topic_category,
                                     'tags': ['reddit', subreddit, topic_category],
+                                    'author': post.author.name if post.author else 'Anonymous',
                                     'timestamp': datetime.fromtimestamp(post.created_utc).isoformat()
                                 }
                                 fresh_data.append(topic)
@@ -793,6 +802,7 @@ def update_database_with_fresh_data():
                         'score': 100,
                         'engagement': 100,
                         'category': article['source']['name'],
+                        'author': article.get('author', 'Unknown'),
                         'topic': topic_category,
                         'tags': ['news', 'headlines', topic_category],
                         'timestamp': article['publishedAt']
@@ -829,7 +839,7 @@ def update_database_with_fresh_data():
                     engagement = view_count + (like_count * 10) + (comment_count * 50)
                     
                     video_tags = ['youtube', 'video', 'trending', 'us']
-                    detected_topic = detect_topic_category(snippet['title'], snippet['description']) # Assuming detect_topic_category can handle this
+                    detected_topic = detect_topic_category('youtube', f"{snippet['title']} {snippet.get('description', '')}")
                     
                     topic = {
                         'platform': 'YouTube',
@@ -841,6 +851,7 @@ def update_database_with_fresh_data():
                         'category': snippet.get('categoryId', 'Video'),
                         'tags': video_tags,
                         'topic': detected_topic,
+                        'author': snippet.get('channelTitle', 'Unknown Channel'),
                         'timestamp': snippet['publishedAt']
                     }
                     fresh_data.append(topic)
@@ -849,6 +860,33 @@ def update_database_with_fresh_data():
                 
             except Exception as e:
                 print(f"❌ YouTube API failed in background task: {e}")
+        
+        # 4. Fetch fresh Instagram data
+        print("📸 Fetching fresh Instagram data...")
+        try:
+            instagram_data = fetch_instagram_trending()
+            fresh_data.extend(instagram_data)
+            print(f"📸 Fetched {len(instagram_data)} fresh Instagram posts")
+        except Exception as e:
+            print(f"❌ Instagram API failed in background task: {e}")
+        
+        # 5. Fetch fresh Facebook data
+        print("📘 Fetching fresh Facebook data...")
+        try:
+            facebook_data = fetch_facebook_trending()
+            fresh_data.extend(facebook_data)
+            print(f"📘 Fetched {len(facebook_data)} fresh Facebook posts")
+        except Exception as e:
+            print(f"❌ Facebook API failed in background task: {e}")
+        
+        # 6. Fetch fresh Telegram data
+        print("📱 Fetching fresh Telegram data...")
+        try:
+            telegram_data = fetch_telegram_trending()
+            fresh_data.extend(telegram_data)
+            print(f"📱 Fetched {len(telegram_data)} fresh Telegram posts")
+        except Exception as e:
+            print(f"❌ Telegram API failed in background task: {e}")
         
         # 4. Update database with fresh data
         if fresh_data:
@@ -867,8 +905,8 @@ def update_database_with_fresh_data():
                 try:
                     cursor.execute('''
                         INSERT OR REPLACE INTO trending_topics 
-                        (platform, title, description, url, score, engagement, category, tags, timestamp, topic)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        (platform, title, description, url, score, engagement, category, tags, timestamp, topic, author)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (
                         topic['platform'],
                         topic['title'],
@@ -879,7 +917,8 @@ def update_database_with_fresh_data():
                         topic['category'],
                         json.dumps(topic['tags']),
                         topic['timestamp'],
-                        topic['topic']
+                        topic['topic'],
+                        topic.get('author', 'Unknown')
                     ))
                 except Exception as e:
                     print(f"Error inserting topic {topic['title']}: {e}")
@@ -922,20 +961,35 @@ last_db_update = None
 # API Routes
 @app.route('/api/trending', methods=['GET'])
 def get_trending():
-    """Get current trending topics with caching"""
+    """Get current trending topics with caching and sorting"""
     try:
+        # Get sorting parameters from query string
+        sort_by = request.args.get('sort', 'random')  # random, engagement, date
+        sort_order = request.args.get('order', 'desc')  # asc, desc
+        
         # Check cache first
         cached_data = cache_manager.get_cached_data(CACHE_KEYS['trending_topics'])
         if cached_data:
             cache_info = cache_manager.get_cache_info(CACHE_KEYS['trending_topics'])
             print(f"📦 Serving {len(cached_data['topics'])} topics from cache")
+            
+            # Apply sorting to cached data
+            topics = cached_data['topics'].copy()
+            if sort_by == 'engagement':
+                topics.sort(key=lambda x: x['engagement'], reverse=(sort_order == 'desc'))
+            elif sort_by == 'date':
+                topics.sort(key=lambda x: x['timestamp'], reverse=(sort_order == 'desc'))
+            # If sort_by is 'random', keep the random order from cache
+            
             return jsonify({
                 'success': True,
-                'topics': cached_data['topics'],
-                'count': len(cached_data['topics']),
+                'topics': topics,
+                'count': len(topics),
                 'timestamp': cached_data['timestamp'],
                 'cached': True,
-                'cache_ttl_minutes': cache_info['ttl_minutes']
+                'cache_ttl_minutes': cache_info['ttl_minutes'],
+                'sort_by': sort_by,
+                'sort_order': sort_order
             })
         
         # If no cache, fetch from database
@@ -950,12 +1004,12 @@ def get_trending():
         seen_titles = set()  # Track seen titles to avoid duplicates
         
         # Get top 1000 from each platform to ensure we have enough data
-        for platform in ['Reddit', 'News', 'YouTube']:
+        for platform in ['Reddit', 'News', 'YouTube', 'Instagram', 'Facebook', 'Telegram']:
             cursor.execute('''
-                SELECT platform, title, description, url, score, engagement, category, tags, timestamp, topic
+                SELECT platform, title, description, url, score, engagement, category, tags, timestamp, topic, author
                 FROM trending_topics
                 WHERE platform = ? AND timestamp > ?
-                ORDER BY engagement DESC
+                ORDER BY RANDOM()
                 LIMIT 1000
             ''', (platform, week_ago))
             
@@ -970,10 +1024,11 @@ def get_trending():
                         'url': row[3],
                         'score': row[4],
                         'engagement': row[5],
-                        'category': row[6],
-                        'tags': json.loads(row[7]) if row[7] else [],
-                        'timestamp': row[8],
-                        'topic': row[9] or 'general'
+                        'category': row[6],      # Fixed: was row[7]
+                        'tags': json.loads(row[7]) if row[7] else [],  # Fixed: was row[8]
+                        'timestamp': row[8],     # Fixed: was row[9]
+                        'topic': row[9] or 'general',  # Fixed: was row[10]
+                        'author': row[10] if len(row) > 10 else 'Unknown'  # Fixed: was row[11]
                     }
                     platform_topics.append(topic)
                     seen_titles.add(row[1])
@@ -981,17 +1036,22 @@ def get_trending():
             all_topics.extend(platform_topics)
             print(f"Added {len(platform_topics)} unique {platform} topics")
         
-        # Sort by engagement for final ordering
-        all_topics.sort(key=lambda x: x['engagement'], reverse=True)
+        # Apply sorting based on parameters
+        if sort_by == 'engagement':
+            all_topics.sort(key=lambda x: x['engagement'], reverse=(sort_order == 'desc'))
+        elif sort_by == 'date':
+            all_topics.sort(key=lambda x: x['timestamp'], reverse=(sort_order == 'desc'))
+        else:  # random
+            random.shuffle(all_topics)
         
         # Limit to top 500 topics for performance
         topics = all_topics[:500]
         
         conn.close()
         
-        # Cache the results
+        # Cache the results (always cache with random order for future use)
         cache_data = {
-            'topics': topics,
+            'topics': all_topics[:500],  # Cache with random order
             'timestamp': datetime.now().isoformat()
         }
         cache_manager.set_cached_data(CACHE_KEYS['trending_topics'], cache_data)
@@ -1001,7 +1061,9 @@ def get_trending():
             'topics': topics,
             'count': len(topics),
             'timestamp': cache_data['timestamp'],
-            'cached': False
+            'cached': False,
+            'sort_by': sort_by,
+            'sort_order': sort_order
         })
     
     except Exception as e:
@@ -1012,8 +1074,12 @@ def get_trending():
 
 @app.route('/api/trending/<platform>', methods=['GET'])
 def get_platform_trending(platform):
-    """Get trending topics from specific platform"""
+    """Get trending topics from specific platform with sorting"""
     try:
+        # Get sorting parameters from query string
+        sort_by = request.args.get('sort', 'random')  # random, engagement, date
+        sort_order = request.args.get('order', 'desc')  # asc, desc
+        
         conn = sqlite3.connect('viral_trends.db')
         cursor = conn.cursor()
         
@@ -1022,12 +1088,20 @@ def get_platform_trending(platform):
         total_count = cursor.fetchone()[0]
         print(f"🔍 Debug: Total {platform} topics in DB: {total_count}")
         
+        # Build SQL query based on sorting parameters
+        if sort_by == 'engagement':
+            order_clause = 'ORDER BY engagement DESC' if sort_order == 'desc' else 'ORDER BY engagement ASC'
+        elif sort_by == 'date':
+            order_clause = 'ORDER BY timestamp DESC' if sort_order == 'desc' else 'ORDER BY timestamp ASC'
+        else:  # random
+            order_clause = 'ORDER BY RANDOM()'
+        
         # Use SQLite date filtering (same as stats endpoint)
-        cursor.execute('''
-            SELECT platform, title, description, url, score, engagement, category, tags, timestamp, topic
+        cursor.execute(f'''
+            SELECT platform, title, description, url, score, engagement, category, tags, timestamp, topic, author
             FROM trending_topics
             WHERE platform = ? AND timestamp > datetime('now', '-7 days')
-            ORDER BY engagement DESC
+            {order_clause}
             LIMIT 200
         ''', (platform,))
         
@@ -1050,10 +1124,11 @@ def get_platform_trending(platform):
                 'url': url,
                 'score': row[4],
                 'engagement': row[5],
-                'category': row[6],
-                'tags': json.loads(row[7]) if row[7] else [],
-                'timestamp': row[8],
-                'topic': row[9] or 'general'
+                'category': row[6],      # Fixed: was row[7]
+                'tags': json.loads(row[7]) if row[7] else [],  # Fixed: was row[8]
+                'timestamp': row[8],     # Fixed: was row[9]
+                'topic': row[9] or 'general',  # Fixed: was row[10]
+                'author': row[10] if len(row) > 10 else 'Unknown'  # Fixed: was row[11]
             })
             seen_titles.add(title)
             seen_urls.add(url)
@@ -1066,7 +1141,9 @@ def get_platform_trending(platform):
             'success': True,
             'platform': platform,
             'topics': topics,
-            'count': len(topics)
+            'count': len(topics),
+            'sort_by': sort_by,
+            'sort_order': sort_order
         })
     
     except Exception as e:
@@ -1077,17 +1154,30 @@ def get_platform_trending(platform):
 
 @app.route('/api/trending/topic/<topic>', methods=['GET'])
 def get_topic_trending(topic):
-    """Get trending topics by specific topic"""
+    """Get trending topics by specific topic with sorting"""
     try:
+        # Get sorting parameters from query string
+        sort_by = request.args.get('sort', 'random')  # random, engagement, date
+        sort_order = request.args.get('order', 'desc')  # asc, desc
+        
         conn = sqlite3.connect('viral_trends.db')
         cursor = conn.cursor()
         
         week_ago = datetime.now() - timedelta(days=7)
-        cursor.execute('''
-            SELECT platform, title, description, url, score, engagement, category, tags, timestamp, topic
+        
+        # Build SQL query based on sorting parameters
+        if sort_by == 'engagement':
+            order_clause = 'ORDER BY engagement DESC' if sort_order == 'desc' else 'ORDER BY engagement ASC'
+        elif sort_by == 'date':
+            order_clause = 'ORDER BY timestamp DESC' if sort_order == 'desc' else 'ORDER BY timestamp ASC'
+        else:  # random
+            order_clause = 'ORDER BY RANDOM()'
+        
+        cursor.execute(f'''
+            SELECT platform, title, description, url, score, engagement, category, tags, timestamp, topic, author
             FROM trending_topics
             WHERE topic = ? AND timestamp > ?
-            ORDER BY engagement DESC
+            {order_clause}
             LIMIT 200
         ''', (topic, week_ago))
         
@@ -1110,10 +1200,11 @@ def get_topic_trending(topic):
                 'url': url,
                 'score': row[4],
                 'engagement': row[5],
-                'category': row[6],
-                'tags': json.loads(row[7]) if row[7] else [],
-                'timestamp': row[8],
-                'topic': row[9] or 'general'
+                'category': row[6],      # Fixed: was row[7]
+                'tags': json.loads(row[7]) if row[7] else [],  # Fixed: was row[8]
+                'timestamp': row[8],     # Fixed: was row[9]
+                'topic': row[9] or 'general',  # Fixed: was row[10]
+                'author': row[10] if len(row) > 10 else 'Unknown'  # Fixed: was row[11]
             })
             seen_titles.add(title)
             seen_urls.add(url)
@@ -1124,7 +1215,9 @@ def get_topic_trending(topic):
             'success': True,
             'topic': topic,
             'topics': topics,
-            'count': len(topics)
+            'count': len(topics),
+            'sort_by': sort_by,
+            'sort_order': sort_order
         })
     
     except Exception as e:
@@ -1167,10 +1260,10 @@ def get_available_topics():
         
         for platform in ['Reddit', 'News', 'YouTube']:
             cursor.execute('''
-                SELECT platform, title, description, url, score, engagement, category, tags, timestamp, topic
+                SELECT platform, title, description, url, score, engagement, category, tags, timestamp, topic, author
                 FROM trending_topics
                 WHERE platform = ? AND timestamp > ?
-                ORDER BY engagement DESC
+                ORDER BY RANDOM()
                 LIMIT 200
             ''', (platform, week_ago))
             
@@ -1184,10 +1277,11 @@ def get_available_topics():
                         'url': row[3],
                         'score': row[4],
                         'engagement': row[5],
-                        'category': row[6],
-                        'tags': json.loads(row[7]) if row[7] else [],
-                        'timestamp': row[8],
-                        'topic': row[9] or 'general'
+                        'category': row[6],      # Fixed: was row[7]
+                        'tags': json.loads(row[7]) if row[7] else [],  # Fixed: was row[8]
+                        'timestamp': row[8],     # Fixed: was row[9]
+                        'topic': row[9] or 'general',  # Fixed: was row[10]
+                        'author': row[10] if len(row) > 10 else 'Unknown'  # Fixed: was row[11]
                     })
                     seen_titles.add(row[1])
         
@@ -1405,20 +1499,35 @@ def get_last_update():
 
 @app.route('/api/trending/all', methods=['GET'])
 def get_all_trending():
-    """Get ALL trending topics from last 7 days (for progressive loading)"""
+    """Get ALL trending topics from last 7 days (for progressive loading) with sorting"""
     try:
+        # Get sorting parameters from query string
+        sort_by = request.args.get('sort', 'random')  # random, engagement, date
+        sort_order = request.args.get('order', 'desc')  # asc, desc
+        
         # Check cache first for all data
         cached_data = cache_manager.get_cached_data(CACHE_KEYS['all_trending_topics'])
         if cached_data:
             cache_info = cache_manager.get_cache_info(CACHE_KEYS['all_trending_topics'])
             print(f"📦 Serving {len(cached_data['topics'])} ALL topics from cache")
+            
+            # Apply sorting to cached data
+            topics = cached_data['topics'].copy()
+            if sort_by == 'engagement':
+                topics.sort(key=lambda x: x['engagement'], reverse=(sort_order == 'desc'))
+            elif sort_by == 'date':
+                topics.sort(key=lambda x: x['timestamp'], reverse=(sort_order == 'desc'))
+            # If sort_by is 'random', keep the random order from cache
+            
             return jsonify({
                 'success': True,
-                'topics': cached_data['topics'],
-                'count': len(cached_data['topics']),
+                'topics': topics,
+                'count': len(topics),
                 'timestamp': cached_data['timestamp'],
                 'cached': True,
-                'cache_ttl_minutes': cache_info['ttl_minutes']
+                'cache_ttl_minutes': cache_info['ttl_minutes'],
+                'sort_by': sort_by,
+                'sort_order': sort_order
             })
         
         # If no cache, fetch ALL data from database
@@ -1428,16 +1537,24 @@ def get_all_trending():
         # Get ALL topics from last 7 days (no limit)
         week_ago = datetime.now() - timedelta(days=7)
         
-        cursor.execute('''
-            SELECT platform, title, description, url, score, engagement, category, tags, timestamp, topic
+        # Build SQL query based on sorting parameters
+        if sort_by == 'engagement':
+            order_clause = 'ORDER BY engagement DESC' if sort_order == 'desc' else 'ORDER BY engagement ASC'
+        elif sort_by == 'date':
+            order_clause = 'ORDER BY timestamp DESC' if sort_order == 'desc' else 'ORDER BY timestamp ASC'
+        else:  # random
+            order_clause = 'ORDER BY RANDOM()'
+        
+        cursor.execute(f'''
+            SELECT platform, title, description, url, score, engagement, category, tags, timestamp, topic, author
             FROM trending_topics
             WHERE timestamp > ?
-            ORDER BY engagement DESC
+            {order_clause}
         ''', (week_ago,))
         
         all_topics = []
         seen_titles = set()  # Track seen titles to avoid duplicates
-        seen_urls = set()    # Track seen URLs as additional deduplication
+        seen_urls = set()
         
         for row in cursor.fetchall():
             title = row[1]
@@ -1448,16 +1565,17 @@ def get_all_trending():
                 continue
                 
             topic = {
-                'platform': row[0],
-                'title': title,
-                'description': row[2],
-                'url': url,
-                'score': row[4],
-                'engagement': row[5],
-                'category': row[6],
-                'tags': json.loads(row[7]) if row[7] else [],
-                'timestamp': row[8],
-                'topic': row[9] or 'general'
+                'platform': row[0],      # platform
+                'title': title,          # title
+                'description': row[2],   # description
+                'url': url,              # url
+                'score': row[4],         # score
+                'engagement': row[5],    # engagement
+                'category': row[6],      # category (was row[7] before)
+                'tags': json.loads(row[7]) if row[7] else [],  # tags (was row[8] before)
+                'timestamp': row[8],     # timestamp (was row[9] before)
+                'topic': row[9] or 'general',  # topic (was row[10] before)
+                'author': row[10] if len(row) > 10 else 'Unknown'  # author (was row[11] before)
             }
             all_topics.append(topic)
             seen_titles.add(title)
@@ -1467,7 +1585,7 @@ def get_all_trending():
         
         print(f"📊 Fetched {len(all_topics)} unique ALL topics from database (removed duplicates)")
         
-        # Cache the ALL results
+        # Cache the ALL results (always cache with random order for future use)
         cache_data = {
             'topics': all_topics,
             'timestamp': datetime.now().isoformat()
@@ -1479,7 +1597,9 @@ def get_all_trending():
             'topics': all_topics,
             'count': len(all_topics),
             'timestamp': cache_data['timestamp'],
-            'cached': False
+            'cached': False,
+            'sort_by': sort_by,
+            'sort_order': sort_order
         })
     
     except Exception as e:
@@ -1490,9 +1610,9 @@ def get_all_trending():
 
 @app.route('/api/database/cleanup', methods=['POST'])
 def trigger_database_cleanup():
-    """Manually trigger database cleanup to remove duplicates"""
+    """Trigger database cleanup to remove old data"""
     try:
-        # Run cleanup in background thread
+        # Run cleanup in a separate thread to avoid blocking
         thread = threading.Thread(target=cleanup_database_duplicates)
         thread.daemon = True
         thread.start()
@@ -1507,6 +1627,42 @@ def trigger_database_cleanup():
             'success': False,
             'error': str(e)
         }), 500
+
+def fetch_instagram_trending():
+    """Fetch trending topics from Instagram (simulated data for now)"""
+    print("📸 Instagram trending disabled - API access required")
+    return []
+    
+    # Instagram API requires business account and app review
+    # For now, return empty array
+    # In the future, this could use:
+    # - Instagram Basic Display API
+    # - Instagram Graph API (for business accounts)
+    # - Web scraping (with proper rate limiting)
+
+def fetch_facebook_trending():
+    """Fetch trending topics from Facebook (simulated data for now)"""
+    print("📘 Facebook trending disabled - API access required")
+    return []
+    
+    # Facebook API requires app review and permissions
+    # For now, return empty array
+    # In the future, this could use:
+    # - Facebook Graph API
+    # - Facebook Pages API
+    # - Web scraping (with proper rate limiting)
+
+def fetch_telegram_trending():
+    """Fetch trending topics from Telegram channels (simulated data for now)"""
+    print("📱 Telegram trending disabled - API access required")
+    return []
+    
+    # Telegram API requires bot token and channel access
+    # For now, return empty array
+    # In the future, this could use:
+    # - Telegram Bot API
+    # - Telegram Client API
+    # - Web scraping of public channels
 
 if __name__ == '__main__':
     # Initialize database

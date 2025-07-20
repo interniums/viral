@@ -71,6 +71,16 @@ eval("__webpack_require__.r(__webpack_exports__);\n/* harmony export */ __webpac
 
 /***/ }),
 
+/***/ "(ssr)/./node_modules/lucide-react/dist/esm/icons/user.js":
+/*!**********************************************************!*\
+  !*** ./node_modules/lucide-react/dist/esm/icons/user.js ***!
+  \**********************************************************/
+/***/ ((__unused_webpack_module, __webpack_exports__, __webpack_require__) => {
+
+eval("__webpack_require__.r(__webpack_exports__);\n/* harmony export */ __webpack_require__.d(__webpack_exports__, {\n/* harmony export */   \"default\": () => (/* binding */ User)\n/* harmony export */ });\n/* harmony import */ var _createLucideIcon_js__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../createLucideIcon.js */ \"(ssr)/./node_modules/lucide-react/dist/esm/createLucideIcon.js\");\n/**\n * lucide-react v0.292.0 - ISC\n */\n\n\n\nconst User = (0,_createLucideIcon_js__WEBPACK_IMPORTED_MODULE_0__[\"default\"])(\"User\", [\n  [\"path\", { d: \"M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2\", key: \"975kel\" }],\n  [\"circle\", { cx: \"12\", cy: \"7\", r: \"4\", key: \"17ys0d\" }]\n]);\n\n\n//# sourceMappingURL=user.js.map\n//# sourceURL=[module]\n//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiKHNzcikvLi9ub2RlX21vZHVsZXMvbHVjaWRlLXJlYWN0L2Rpc3QvZXNtL2ljb25zL3VzZXIuanMiLCJtYXBwaW5ncyI6Ijs7Ozs7QUFBQTtBQUNBO0FBQ0E7O0FBRXNEOztBQUV0RCxhQUFhLGdFQUFnQjtBQUM3QixhQUFhLCtEQUErRDtBQUM1RSxlQUFlLDBDQUEwQztBQUN6RDs7QUFFMkI7QUFDM0IiLCJzb3VyY2VzIjpbIndlYnBhY2s6Ly92aXJhbC10cmVuZGluZy1mcm9udGVuZC8uL25vZGVfbW9kdWxlcy9sdWNpZGUtcmVhY3QvZGlzdC9lc20vaWNvbnMvdXNlci5qcz85YTAxIl0sInNvdXJjZXNDb250ZW50IjpbIi8qKlxuICogbHVjaWRlLXJlYWN0IHYwLjI5Mi4wIC0gSVNDXG4gKi9cblxuaW1wb3J0IGNyZWF0ZUx1Y2lkZUljb24gZnJvbSAnLi4vY3JlYXRlTHVjaWRlSWNvbi5qcyc7XG5cbmNvbnN0IFVzZXIgPSBjcmVhdGVMdWNpZGVJY29uKFwiVXNlclwiLCBbXG4gIFtcInBhdGhcIiwgeyBkOiBcIk0xOSAyMXYtMmE0IDQgMCAwIDAtNC00SDlhNCA0IDAgMCAwLTQgNHYyXCIsIGtleTogXCI5NzVrZWxcIiB9XSxcbiAgW1wiY2lyY2xlXCIsIHsgY3g6IFwiMTJcIiwgY3k6IFwiN1wiLCByOiBcIjRcIiwga2V5OiBcIjE3eXMwZFwiIH1dXG5dKTtcblxuZXhwb3J0IHsgVXNlciBhcyBkZWZhdWx0IH07XG4vLyMgc291cmNlTWFwcGluZ1VSTD11c2VyLmpzLm1hcFxuIl0sIm5hbWVzIjpbXSwic291cmNlUm9vdCI6IiJ9\n//# sourceURL=webpack-internal:///(ssr)/./node_modules/lucide-react/dist/esm/icons/user.js\n");
+
+/***/ }),
+
 /***/ "(ssr)/./node_modules/lucide-react/dist/esm/icons/zap.js":
 /*!*********************************************************!*\
   !*** ./node_modules/lucide-react/dist/esm/icons/zap.js ***!
