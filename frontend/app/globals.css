@@ -1,0 +1,255 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: system-ui, sans-serif;
+    /* Prevent layout shift when scrollbar appears/disappears */
+    overflow-y: scroll;
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    /* Prevent horizontal scrollbar */
+    overflow-x: hidden;
+    /* Use 100% instead of 100vw to avoid horizontal scrollbar */
+    width: 100%;
+  }
+
+  /* Custom scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 6px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow duration-200;
+  }
+
+  .btn-primary {
+    @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded-lg transition-colors duration-200;
+  }
+
+  .btn-load-more {
+    @apply bg-primary-600 hover:bg-primary-700 text-white font-semibold py-3 px-8 rounded-lg transition-all duration-300 transform shadow-lg;
+    /* Same hover animation as cards - vertical lift without scaling */
+    transform: translateY(0);
+    font-smooth: antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    backface-visibility: hidden;
+    will-change: transform;
+  }
+
+  .btn-load-more:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+
+  .platform-badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  .platform-reddit {
+    @apply bg-orange-100 text-orange-800;
+  }
+
+  /* .platform-twitter {
+    @apply bg-blue-100 text-blue-800;
+  } */
+
+  .platform-news {
+    @apply bg-green-100 text-green-800;
+  }
+
+  .platform-youtube {
+    @apply bg-red-100 text-red-800;
+  }
+
+  .trending-card {
+    @apply card p-6 cursor-pointer;
+    /* Prevent layout shift */
+    min-height: 200px;
+    box-sizing: border-box;
+    /* Smoother and smaller hover animation */
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateY(0);
+    /* Prevent font glitching */
+    font-smooth: antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    backface-visibility: hidden;
+    will-change: transform;
+    /* Focus styles for accessibility */
+    outline: none;
+  }
+
+  .trending-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+
+  .trending-card:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
+
+  .trending-card:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Prevent font glitching in card content */
+  .trending-card h3,
+  .trending-card p,
+  .trending-card span {
+    font-smooth: antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    transform: translateZ(0);
+  }
+
+  /* Ensure grid stability */
+  .trending-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .viral-score {
+    @apply inline-flex items-center px-2 py-1 rounded-full text-xs font-bold;
+  }
+
+  .score-high {
+    @apply bg-viral-red text-white;
+  }
+
+  .score-medium {
+    @apply bg-viral-orange text-white;
+  }
+
+  .score-low {
+    @apply bg-viral-yellow text-black;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-primary-600 to-viral-purple bg-clip-text text-transparent;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Skeleton loading styles */
+  .skeleton {
+    @apply bg-gray-300 rounded animate-pulse;
+  }
+
+  .skeleton-text {
+    @apply h-4 bg-gray-300 rounded animate-pulse;
+  }
+
+  .skeleton-title {
+    @apply h-6 bg-gray-300 rounded animate-pulse;
+  }
+
+  .skeleton-card {
+    @apply card p-6;
+    min-height: 200px;
+  }
+
+  /* Ensure skeleton elements are visible */
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.5;
+    }
+  }
+
+  /* Force skeleton colors to be visible */
+  .bg-gray-300 {
+    background-color: #d1d5db !important;
+  }
+
+  .bg-gray-50 {
+    background-color: #f9fafb !important;
+  }
+
+  /* Ensure skeleton elements are always visible */
+  [style*='background-color: #d1d5db'] {
+    background-color: #d1d5db !important;
+  }
+
+  /* Ensure card backgrounds are always white */
+  .card {
+    background-color: #ffffff !important;
+  }
+
+  /* Override any dark backgrounds during loading */
+  .bg-white {
+    background-color: #ffffff !important;
+  }
+
+  /* Ensure main container background is light */
+  .container {
+    background-color: transparent !important;
+  }
+
+  /* Override skeleton loading colors and ensure visibility */
+  .trending-card .animate-pulse,
+  .card .animate-pulse,
+  .animate-pulse {
+    background-color: #d1d5db !important;
+    opacity: 1 !important;
+  }
+
+  /* Platform filter active state improvements */
+  .bg-primary-600 {
+    background-color: #2563eb !important;
+  }
+
+  .text-primary-600 {
+    color: #2563eb !important;
+  }
+
+  .ring-primary-200 {
+    --tw-ring-color: #bfdbfe !important;
+  }
+
+  /* Ensure filter badges are visible */
+  .bg-opacity-30 {
+    background-color: rgba(255, 255, 255, 0.3) !important;
+  }
+}
