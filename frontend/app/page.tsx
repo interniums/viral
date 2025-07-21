@@ -1,12 +1,11 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { TrendingUp, BarChart3, Globe, Zap } from 'lucide-react'
+import { TrendingUp, Globe, Zap } from 'lucide-react'
 import { Swiper, SwiperSlide } from 'swiper/react'
-import { FreeMode, Scrollbar } from 'swiper/modules'
+import { FreeMode } from 'swiper/modules'
 import 'swiper/css'
 import 'swiper/css/free-mode'
-import 'swiper/css/scrollbar'
 import TrendingCard from '../components/TrendingCard'
 import StatsCard from '../components/StatsCard'
 import PlatformFilter from '../components/PlatformFilter'
@@ -16,18 +15,19 @@ import PlatformIcon from '../components/PlatformIcon'
 import { Topic, Stats } from '../types'
 
 // Constants
-const DEFAULT_PLATFORMS = ['Reddit', 'YouTube', 'News', 'Instagram', 'Facebook', 'Telegram']
+const DEFAULT_PLATFORMS = ['Reddit', 'YouTube', 'Google Trends']
 const INITIAL_DISPLAY_COUNT = 50
 const LOAD_MORE_INCREMENT = 50
 const SCROLL_THRESHOLD = 300
 const UPDATE_INTERVAL = 300000 // 5 minutes
 const DB_CHECK_INTERVAL = 60000 // 1 minute
+const SKELETON_HEIGHT = 120
 
 // Loading skeleton components
 const StatsSkeleton = () => (
   <div
     className="card p-6 border-2 min-w-[200px] flex-shrink-0 bg-gray-50 border-gray-200 mr-4"
-    style={{ minHeight: '120px' }}
+    style={{ minHeight: `${SKELETON_HEIGHT}px` }}
   >
     <div className="flex items-center justify-between h-full">
       <div>
@@ -48,56 +48,17 @@ const TrendingCardSkeleton = ({
   className?: string
   style?: React.CSSProperties
 }) => (
-  <div
-    key={`skeleton-${index}`}
-    className={`trending-card bg-white ${className}`}
-    style={{ minHeight: '280px', ...style }}
-  >
-    {/* Header */}
+  <div className={`trending-card skeleton-card ${className}`} style={style}>
     <div className="flex items-start justify-between mb-4">
       <div className="flex items-center space-x-2">
         <div className="w-8 h-8 rounded animate-pulse bg-gray-200"></div>
-        <div className="w-16 h-6 rounded animate-pulse bg-gray-200"></div>
+        <div className="w-16 h-4 rounded animate-pulse bg-gray-200"></div>
       </div>
       <div className="w-20 h-6 rounded animate-pulse bg-gray-200"></div>
     </div>
-
-    {/* Title */}
-    <div className="h-6 rounded mb-2 animate-pulse bg-gray-200"></div>
-    <div className="h-6 rounded mb-2 animate-pulse bg-gray-200 w-4/5"></div>
-
-    {/* Description */}
-    <div className="h-4 rounded mb-2 animate-pulse bg-gray-200"></div>
-    <div className="h-4 rounded mb-2 animate-pulse bg-gray-200"></div>
-    <div className="h-4 rounded mb-4 w-3/4 animate-pulse bg-gray-200"></div>
-
-    {/* Topic Badge */}
-    <div className="w-16 h-6 rounded-full mb-3 animate-pulse bg-gray-200"></div>
-
-    {/* Tags */}
-    <div className="flex gap-1 mb-4">
-      <div className="w-12 h-5 rounded-full animate-pulse bg-gray-200"></div>
-      <div className="w-16 h-5 rounded-full animate-pulse bg-gray-200"></div>
-      <div className="w-14 h-5 rounded-full animate-pulse bg-gray-200"></div>
-    </div>
-
-    {/* Author */}
-    <div className="flex items-center mb-3">
-      <div className="w-4 h-4 rounded mr-1 animate-pulse bg-gray-200"></div>
-      <div className="w-20 h-4 rounded animate-pulse bg-gray-200"></div>
-    </div>
-
-    {/* Footer */}
-    <div className="flex items-center justify-between mt-auto">
-      <div className="flex items-center">
-        <div className="w-4 h-4 rounded mr-1 animate-pulse bg-gray-200"></div>
-        <div className="w-16 h-4 rounded animate-pulse bg-gray-200"></div>
-      </div>
-      <div className="flex items-center">
-        <div className="w-4 h-4 rounded mr-1 animate-pulse bg-gray-200"></div>
-        <div className="w-8 h-4 rounded animate-pulse bg-gray-200"></div>
-      </div>
-    </div>
+    <div className="h-6 rounded animate-pulse bg-gray-200 mb-2"></div>
+    <div className="h-4 rounded animate-pulse bg-gray-200 mb-4"></div>
+    <div className="w-24 h-4 rounded animate-pulse bg-gray-200"></div>
   </div>
 )
 
@@ -107,11 +68,23 @@ export default function Home() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
   const [topicsLoading, setTopicsLoading] = useState(true)
-  const [statsLoading, setStatsLoading] = useState(true)
+  const [sortingLoading, setSortingLoading] = useState(false)
   const [filtersLoading, setFiltersLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(DEFAULT_PLATFORMS)
-  const [selectedTopics, setSelectedTopics] = useState<string[]>([])
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([
+    'general',
+    'technology',
+    'sports',
+    'entertainment',
+    'politics',
+    'crypto',
+    'gaming',
+    'culture',
+    'finance',
+    'memes',
+    'lifestyle',
+  ])
   const [selectedSort, setSelectedSort] = useState<string>('random')
   const [selectedOrder, setSelectedOrder] = useState<string>('desc')
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
@@ -120,16 +93,31 @@ export default function Home() {
   const [showLoadMore, setShowLoadMore] = useState(true)
   const [showScrollToTop, setShowScrollToTop] = useState(false)
 
+  // Refs to track current sort values
+  const sortRef = useRef(selectedSort)
+  const orderRef = useRef(selectedOrder)
+
+  // Update refs when sort values change
+  useEffect(() => {
+    sortRef.current = selectedSort
+    orderRef.current = selectedOrder
+  }, [selectedSort, selectedOrder])
+
   // API fetch functions
-  const fetchAllTrendingTopics = useCallback(async () => {
+  const fetchTopics = useCallback(async (isSorting = false) => {
     try {
-      setTopicsLoading(true)
+      if (isSorting) {
+        setSortingLoading(true)
+      } else {
+        setTopicsLoading(true)
+      }
       setError(null)
 
-      // Start minimum loading timer
-      const loadingStartTime = Date.now()
+      // Use ref values to get current sort and order
+      const currentSort = sortRef.current
+      const currentOrder = orderRef.current
 
-      const response = await fetch(`/api/trending/all?sort=${selectedSort}&order=${selectedOrder}`)
+      const response = await fetch(`/api/trending/all?sort=${currentSort}&order=${currentOrder}`)
       const data = await response.json()
 
       if (data.success) {
@@ -138,25 +126,20 @@ export default function Home() {
       } else {
         setError(data.error || 'Failed to fetch trending topics')
       }
-
-      // Ensure minimum 1 second loading time for better UX
-      const elapsedTime = Date.now() - loadingStartTime
-      const minLoadingTime = 1000 // 1 second
-
-      if (elapsedTime < minLoadingTime) {
-        await new Promise((resolve) => setTimeout(resolve, minLoadingTime - elapsedTime))
-      }
     } catch (error) {
       setError('Network error while fetching trending topics')
-      console.error('❌ Error fetching all trending topics:', error)
+      console.error('❌ Error fetching trending topics:', error)
     } finally {
-      setTopicsLoading(false)
+      if (isSorting) {
+        setSortingLoading(false)
+      } else {
+        setTopicsLoading(false)
+      }
     }
-  }, [selectedSort, selectedOrder])
+  }, [])
 
   const fetchStats = useCallback(async () => {
     try {
-      setStatsLoading(true)
       const response = await fetch('/api/stats', {
         headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
       })
@@ -168,8 +151,6 @@ export default function Home() {
       }
     } catch (error) {
       console.error('❌ Error fetching stats:', error)
-    } finally {
-      setStatsLoading(false)
     }
   }, [])
 
@@ -211,11 +192,12 @@ export default function Home() {
     try {
       await Promise.all([fetchStats(), fetchLastUpdate()])
       // Fetch topics separately to avoid dependency issues
-      await fetchAllTrendingTopics()
+      await fetchTopics()
     } catch (error) {
       setError('Failed to load initial data')
     } finally {
       setLoading(false)
+      setTopicsLoading(false)
       setFiltersLoading(false)
     }
   }, [fetchStats, fetchLastUpdate])
@@ -252,7 +234,7 @@ export default function Home() {
   useEffect(() => {
     handleInitialLoad()
 
-    const interval = setInterval(fetchAllTrendingTopics, UPDATE_INTERVAL)
+    const interval = setInterval(fetchTopics, UPDATE_INTERVAL)
     const dbUpdateInterval = setInterval(async () => {
       try {
         await fetchLastUpdate()
@@ -260,7 +242,7 @@ export default function Home() {
           const savedLastDbUpdate = localStorage.getItem('viral_last_db_update')
           if (!savedLastDbUpdate || savedLastDbUpdate !== lastDbUpdate) {
             localStorage.setItem('viral_last_db_update', lastDbUpdate)
-            await Promise.all([fetchAllTrendingTopics(), fetchStats()])
+            await Promise.all([fetchTopics(), fetchStats()])
           }
         }
       } catch (error) {
@@ -276,9 +258,9 @@ export default function Home() {
 
   useEffect(() => {
     if (topics.length > 0) {
-      fetchAllTrendingTopics()
+      fetchTopics(true) // Pass true for sorting
     }
-  }, [selectedSort, selectedOrder, fetchAllTrendingTopics])
+  }, [selectedSort, selectedOrder])
 
   useEffect(() => {
     if (topics.length > 0 && selectedTopics.length === 0) {
@@ -326,17 +308,18 @@ export default function Home() {
         icon: <PlatformIcon platform="Reddit" size={24} />,
         color: 'orange' as const,
       },
-      {
-        title: 'News Articles',
-        value: stats?.platform_stats?.News || 0,
-        icon: <PlatformIcon platform="News" size={24} />,
-        color: 'green' as const,
-      },
+
       {
         title: 'YouTube Videos',
         value: stats?.platform_stats?.YouTube || 0,
         icon: <PlatformIcon platform="YouTube" size={24} />,
         color: 'red' as const,
+      },
+      {
+        title: 'Google Trends',
+        value: stats?.platform_stats?.['Google Trends'] || 0,
+        icon: <PlatformIcon platform="Google Trends" size={24} />,
+        color: 'orange' as const,
       },
       {
         title: 'Instagram Posts',
@@ -371,7 +354,7 @@ export default function Home() {
   }
 
   const renderTrendingCards = () => {
-    if (topicsLoading) {
+    if (loading) {
       return Array.from({ length: 12 }).map((_, index) => (
         <TrendingCardSkeleton key={`skeleton-${index}`} index={index} className="animate-in fade-in" />
       ))
@@ -393,7 +376,7 @@ export default function Home() {
         <p className="text-gray-600">
           Showing {Math.min(displayCount, filteredTopics.length)} of {filteredTopics.length} trending topics
         </p>
-        {topicsLoading && (
+        {sortingLoading && (
           <div className="flex items-center space-x-1 text-blue-600">
             <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
             <span className="text-sm">Sorting...</span>
@@ -404,7 +387,7 @@ export default function Home() {
   }
 
   const renderEmptyState = () => {
-    if (topicsLoading || filteredTopics.length > 0) return null
+    if (loading || filteredTopics.length > 0) return null
 
     return (
       <div className="text-center py-12">
@@ -430,7 +413,7 @@ export default function Home() {
           <h1 className="text-4xl font-bold text-gradient">Viral Trending Topics</h1>
         </div>
         <p className="text-xl text-gray-600 mb-6">
-          Real-time trending topics from Reddit, News, and other social platforms
+          Real-time trending topics from Reddit, YouTube, and other social platforms
         </p>
         <div className="flex items-center justify-center text-sm text-gray-500">
           {lastDbUpdate ? (
@@ -453,17 +436,25 @@ export default function Home() {
 
       {/* Stats Cards */}
       <div className="mb-8">
-        <Swiper modules={[FreeMode]} slidesPerView="auto" freeMode={true} className="stats-swiper">
-          {statsLoading
+        <Swiper
+          key={loading ? 'loading' : 'loaded'}
+          modules={[FreeMode]}
+          slidesPerView="auto"
+          freeMode={true}
+          className="stats-swiper"
+          watchSlidesProgress={true}
+          preventInteractionOnTransition={true}
+        >
+          {loading
             ? // Loading skeletons with proper SwiperSlide structure
               Array.from({ length: 7 }).map((_, index) => (
-                <SwiperSlide key={index} style={{ width: 'auto' }}>
+                <SwiperSlide key={`skeleton-${index}`} style={{ width: 'auto' }}>
                   <StatsSkeleton />
                 </SwiperSlide>
               ))
             : // Actual stats cards
               renderStatsCards().map((card, index) => (
-                <SwiperSlide key={index} style={{ width: 'auto' }}>
+                <SwiperSlide key={`stats-${index}`} style={{ width: 'auto' }}>
                   {card}
                 </SwiperSlide>
               ))}

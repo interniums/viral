@@ -22,13 +22,6 @@ export default function DebugPage() {
         const topicsResponse = await fetch('/api/trending/all')
         const topicsData = await topicsResponse.json()
         setTopics(topicsData)
-
-        console.log('Debug - Stats:', statsData)
-        console.log('Debug - Topics count:', topicsData.topics?.length || 0)
-        console.log('Debug - YouTube count from stats:', statsData.platform_stats?.YouTube || 0)
-
-        const youtubeTopics = topicsData.topics?.filter((t: any) => t.platform === 'YouTube') || []
-        console.log('Debug - YouTube topics count:', youtubeTopics.length)
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error')
         console.error('Debug - Error:', err)

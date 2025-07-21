@@ -8,9 +8,12 @@ import json
 import time
 from datetime import datetime, timedelta
 
+# Constants
+CACHE_DURATION_SECONDS = 900  # 15 minutes in seconds (match DB update frequency)
+
 class CacheManager:
     def __init__(self):
-        self.cache_duration = 900  # 15 minutes in seconds (match DB update frequency)
+        self.cache_duration = CACHE_DURATION_SECONDS  # 15 minutes in seconds (match DB update frequency)
         self.memory_cache = {}
         print("✅ Using in-memory cache (15 minute TTL - matches DB updates)")
     
@@ -64,7 +67,7 @@ CACHE_KEYS = {
     'trending_topics': 'viral:trending:topics',
     'all_trending_topics': 'viral:trending:all_topics',
     'reddit_topics': 'viral:trending:reddit',
-    'news_topics': 'viral:trending:news',
+    'google_trends_topics': 'viral:trending:google_trends',
     'youtube_topics': 'viral:trending:youtube',
     'stats': 'viral:stats:overview'
 } 

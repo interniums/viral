@@ -51,10 +51,24 @@ export default function TopicFilter({
       topicCounts[topicCategory] = (topicCounts[topicCategory] || 0) + 1
     })
 
-    // Return topics with counts
-    return topics.map((t) => ({
-      topic: t.topic,
-      count: topicCounts[t.topic] || 0,
+    // Return all available topics with their counts (including topics with 0 count)
+    const allAvailableTopics = [
+      'general',
+      'technology',
+      'sports',
+      'entertainment',
+      'politics',
+      'crypto',
+      'gaming',
+      'culture',
+      'finance',
+      'memes',
+      'lifestyle',
+    ]
+
+    return allAvailableTopics.map((topicName) => ({
+      topic: topicName,
+      count: topicCounts[topicName] || 0,
     }))
   }
 
@@ -85,7 +99,6 @@ export default function TopicFilter({
   useEffect(() => {
     const fetchTopics = async () => {
       try {
-        console.log('🔄 Fetching topics from API...')
         const response = await fetch('/api/topics', {
           headers: {
             'Cache-Control': 'no-cache',
@@ -99,7 +112,6 @@ export default function TopicFilter({
 
         const data = await response.json()
         if (data.success) {
-          console.log(`✅ Fetched ${data.topics.length} topics from API`)
           setTopics(data.topics)
         } else {
           console.error('❌ API returned error:', data.error)
@@ -134,7 +146,7 @@ export default function TopicFilter({
           {Array.from({ length: 8 }).map((_, index) => (
             <div
               key={index}
-              className="px-3 py-2 rounded-md border border-gray-200 animate-pulse bg-gray-200 flex items-center space-x-2"
+              className="px-3 py-2 rounded-md border border-gray-200 animate-pulse bg-gray-200 flex items-center space-x-2 h-[36px]"
             >
               <div className="w-4 h-4 rounded animate-pulse bg-gray-300"></div>
               <div className="w-12 h-3 rounded animate-pulse bg-gray-300"></div>
@@ -171,7 +183,7 @@ export default function TopicFilter({
             <button
               key={topic.topic}
               onClick={() => handleTopicToggle(topic.topic)}
-              className={`px-3 py-2 rounded-md border-2 transition-all duration-300 ease-in-out flex items-center space-x-2 ${
+              className={`px-3 py-2 rounded-md border-2 transition-all duration-300 ease-in-out flex items-center space-x-2 h-[36px] ${
                 isSelected
                   ? 'bg-white text-gray-800 border-gray-300 shadow-sm'
                   : 'bg-white text-gray-600 border-gray-100 hover:bg-gray-50 hover:border-gray-300'

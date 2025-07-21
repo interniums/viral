@@ -11,7 +11,7 @@ export default function PlatformFilter({
   const platforms = [
     { key: 'Reddit', label: 'Reddit' },
     { key: 'YouTube', label: 'YouTube' },
-    { key: 'News', label: 'News' },
+    { key: 'Google Trends', label: 'Google Trends' },
     { key: 'Instagram', label: 'Instagram' },
     { key: 'Facebook', label: 'Facebook' },
     { key: 'Telegram', label: 'Telegram' },
@@ -51,7 +51,7 @@ export default function PlatformFilter({
           {Array.from({ length: 6 }).map((_, index) => (
             <div
               key={index}
-              className="p-2 rounded-md border border-gray-200 animate-pulse bg-gray-200 flex flex-col items-center space-y-1"
+              className="p-2 rounded-md border border-gray-200 animate-pulse bg-gray-200 flex flex-col items-center space-y-1 h-[60px]"
             >
               <div className="relative flex items-center justify-center w-full">
                 <div className="w-6 h-6 rounded animate-pulse bg-gray-300"></div>
@@ -91,7 +91,7 @@ export default function PlatformFilter({
             <button
               key={platform.key}
               onClick={() => handlePlatformToggle(platform.key)}
-              className={`p-2 rounded-md border-2 transition-all duration-300 ease-in-out ${
+              className={`p-2 rounded-md border-2 transition-all duration-300 ease-in-out h-[60px] ${
                 isSelected
                   ? 'bg-white text-gray-800 border-gray-300 shadow-sm'
                   : 'bg-white text-gray-600 border-gray-100 hover:bg-gray-50 hover:border-gray-300'

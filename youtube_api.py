@@ -4,10 +4,15 @@ YouTube Data API Integration
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 import json
+
+# Constants
+DATABASE_RETENTION_DAYS = 7
+MAX_DESCRIPTION_LENGTH = 200
+ENGAGEMENT_SCORE_DIVISOR = 1000
 
 def init_youtube():
     """Initialize YouTube API client"""
@@ -35,7 +40,7 @@ def detect_youtube_topic(title, description, tags):
         'technology': ['tech', 'technology', 'ai', 'artificial intelligence', 'machine learning', 'programming', 'software', 'app', 'gadget', 'review', 'tutorial'],
         'gaming': ['game', 'gaming', 'playstation', 'xbox', 'nintendo', 'steam', 'esports', 'streamer', 'gamer', 'walkthrough', 'review'],
         'culture': ['culture', 'art', 'music', 'movie', 'film', 'celebrity', 'fashion', 'lifestyle', 'travel', 'food', 'cooking', 'recipe'],
-        'politics': ['politics', 'government', 'election', 'president', 'congress', 'policy', 'law', 'news', 'breaking'],
+        'politics': ['politics', 'government', 'election', 'president', 'congress', 'policy', 'law', 'breaking'],
         'memes': ['meme', 'funny', 'comedy', 'humor', 'joke', 'viral', 'trending', 'tiktok', 'reaction']
     }
     
@@ -58,8 +63,8 @@ def fetch_youtube_trending(youtube_client, save_trending_topic):
         conn = sqlite3.connect('viral_trends.db')
         cursor = conn.cursor()
         
-        # Get recent YouTube videos from database (last 7 days)
-        week_ago = datetime.now() - timedelta(days=7)
+        # Get recent YouTube videos from database (last DATABASE_RETENTION_DAYS days)
+        week_ago = datetime.now() - timedelta(days=DATABASE_RETENTION_DAYS)
         cursor.execute('''
             SELECT title, description, url, score, engagement, category, tags, timestamp, topic
             FROM trending_topics
@@ -138,9 +143,9 @@ def fetch_youtube_trending(youtube_client, save_trending_topic):
                     topic = {
                         'platform': 'YouTube',
                         'title': snippet['title'],
-                        'description': snippet['description'][:200] if snippet['description'] else 'Trending video on YouTube',
+                                                    'description': snippet['description'][:MAX_DESCRIPTION_LENGTH] if snippet['description'] else 'Trending video on YouTube',
                         'url': f"https://www.youtube.com/watch?v={video['id']}",
-                        'score': engagement // 1000,  # Convert to manageable score
+                                                    'score': engagement // ENGAGEMENT_SCORE_DIVISOR,  # Convert to manageable score
                         'engagement': engagement,
                         'category': snippet.get('categoryId', 'Video'),
                         'tags': video_tags,

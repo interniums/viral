@@ -15,6 +15,12 @@
     overflow-x: hidden;
     /* Use 100% instead of 100vw to avoid horizontal scrollbar */
     width: 100%;
+    /* Ensure font loads immediately to prevent size changes */
+    font-display: swap;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   /* Custom scrollbar styling */
@@ -124,12 +130,12 @@
     @apply bg-blue-100 text-blue-800;
   } */
 
-  .platform-news {
-    @apply bg-green-100 text-green-800;
-  }
-
   .platform-youtube {
     @apply bg-red-100 text-red-800;
+  }
+
+  .platform-google-trends {
+    @apply bg-orange-100 text-orange-800;
   }
 
   /* Platform icon colors */
@@ -141,8 +147,8 @@
     @apply text-red-600;
   }
 
-  .platform-icon-news {
-    @apply text-green-600;
+  .platform-icon-google-trends {
+    @apply text-orange-600;
   }
 
   .trending-card {
@@ -216,8 +222,26 @@
 }
 
 @layer utilities {
+  /* Ensure header text renders immediately without glitching */
+  .header-text {
+    @apply text-primary-600;
+    font-display: swap;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   .text-gradient {
     @apply bg-gradient-to-r from-primary-600 to-viral-purple bg-clip-text text-transparent;
+    /* Prevent font size changes during loading */
+    font-display: swap;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Ensure consistent sizing */
+    line-height: 1.2;
+    letter-spacing: -0.025em;
   }
 
   .animate-pulse-slow {
@@ -337,6 +361,9 @@
   .stats-swiper {
     padding-bottom: 16px;
     cursor: grab;
+    /* Prevent layout shifts during loading transitions */
+    min-height: 120px;
+    transition: opacity 0.3s ease-in-out;
   }
 
   .stats-swiper:active {
@@ -345,15 +372,26 @@
 
   .stats-swiper .swiper-slide {
     width: auto !important;
+    /* Ensure consistent sizing during transitions */
+    transition: all 0.3s ease-in-out;
   }
 
   /* Hide scrollbar for webkit browsers */
   .stats-swiper .swiper-wrapper {
     -ms-overflow-style: none; /* IE and Edge */
     scrollbar-width: none; /* Firefox */
+    /* Prevent layout shifts */
+    display: flex;
+    align-items: stretch;
   }
 
   .stats-swiper .swiper-wrapper::-webkit-scrollbar {
     display: none; /* Chrome, Safari and Opera */
+  }
+
+  /* Ensure skeleton cards maintain consistent dimensions */
+  .stats-swiper .swiper-slide > div {
+    min-width: 200px;
+    min-height: 120px;
   }
 }

@@ -10,8 +10,8 @@ export default function TrendingCard({ topic, rank, className = '', style }: Tre
         return 'platform-reddit'
       // case 'twitter':
       //   return 'platform-twitter'
-      case 'news':
-        return 'platform-news'
+      case 'google trends':
+        return 'platform-google-trends'
       case 'youtube':
         return 'platform-youtube'
       default:

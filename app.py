@@ -7,14 +7,25 @@ import sqlite3
 from datetime import datetime, timedelta
 import praw
 from dotenv import load_dotenv
-from newsapi import NewsApiClient
+
 from cache_manager import cache_manager, CACHE_KEYS
 from youtube_api import init_youtube
+from google_trends_api import init_google_trends, fetch_google_trends_trending
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 # Load environment variables
 load_dotenv()
+
+# Constants
+MAX_TOPICS_PER_PLATFORM = 200
+MAX_DESCRIPTION_LENGTH = 200
+MAX_TOTAL_TOPICS = 500
+MAX_DATABASE_FETCH = 1000
+ENGAGEMENT_SCORE_DIVISOR = 1000
+DATABASE_RETENTION_DAYS = 7
+FLASK_PORT = 5000
+FLASK_HOST = '0.0.0.0'
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'default-secret-key')
@@ -116,38 +127,9 @@ def init_reddit():
         return None
 
 # Initialize Twitter API
-def init_twitter():
-    # Twitter API disabled for now
-    print("Twitter API disabled")
-    return None
-    
-    # if not TWITTER_AVAILABLE:
-    #     print("Twitter API not available (tweepy not installed)")
-    #     return None
-    
-    # try:
-    #     auth = tweepy.OAuthHandler(
-    #         os.getenv('TWITTER_API_KEY'),
-    #         os.getenv('TWITTER_API_SECRET')
-    #     )
-    #     auth.set_access_token(
-    #         os.getenv('TWITTER_ACCESS_TOKEN'),
-    #         os.getenv('TWITTER_ACCESS_TOKEN_SECRET')
-    #     )
-    #     api = tweepy.API(auth)
-    #     return api
-    # except Exception as e:
-    #     print(f"Twitter API initialization failed: {e}")
-    #     return None
+# Twitter API disabled - removed dead code
 
-# Initialize News API
-def init_news():
-    try:
-        newsapi = NewsApiClient(api_key=os.getenv('NEWS_API_KEY'))
-        return newsapi
-    except Exception as e:
-        print(f"News API initialization failed: {e}")
-        return None
+
 
 # Initialize YouTube API
 def init_youtube():
@@ -166,9 +148,8 @@ def init_youtube():
 
 # Global variables for API clients
 reddit_client = init_reddit()
-twitter_client = init_twitter()
-news_client = init_news()
 youtube_client = init_youtube()
+google_trends_client = init_google_trends()
 
 def detect_topic_category(platform, title):
     """Detect topic category based on platform and title"""
@@ -211,7 +192,7 @@ def detect_topic_category(platform, title):
         return 'technology'
     
     # Politics topics
-    politics_keywords = ['politics', 'news', 'worldnews', 'government', 'election']
+    politics_keywords = ['politics', 'worldnews', 'government', 'election']
     if any(keyword in platform_lower for keyword in politics_keywords) or any(keyword in title_lower for keyword in politics_keywords):
         return 'politics'
     
@@ -254,7 +235,7 @@ def fetch_reddit_trending():
             print("🔴 Fetching from Reddit API...")
             # Get trending posts from multiple subreddits
             subreddits = [
-                'trending', 'popular', 'all', 'news', 'technology', 'science',
+                'trending', 'popular', 'all', 'technology', 'science',
                 'sports', 'gaming', 'movies', 'music', 'books', 'food',
                 'cryptocurrency', 'wallstreetbets', 'investing', 'personalfinance'
             ]
@@ -284,14 +265,14 @@ def fetch_reddit_trending():
                             trending_topics.append(topic)
                             seen_titles.add(post.title)
                             
-                            if len(trending_topics) >= 200:  # Limit to 200 Reddit posts
+                            if len(trending_topics) >= MAX_TOPICS_PER_PLATFORM:  # Limit to 200 Reddit posts
                                 break
                                 
                 except Exception as e:
                     print(f"Error fetching from r/{subreddit}: {e}")
                     continue
                     
-                if len(trending_topics) >= 200:
+                if len(trending_topics) >= MAX_TOPICS_PER_PLATFORM:
                     break
                     
             print(f"✅ Fetched {len(trending_topics)} unique Reddit posts from API")
@@ -301,21 +282,21 @@ def fetch_reddit_trending():
             print("🔄 Falling back to database...")
     
     # If API failed or we need more data, get from database
-    if len(trending_topics) < 200:
+    if len(trending_topics) < MAX_TOPICS_PER_PLATFORM:
         try:
             print("📦 Fetching Reddit data from database...")
             conn = sqlite3.connect('viral_trends.db')
             cursor = conn.cursor()
             
-            # Get recent Reddit posts from database (last 7 days)
-            week_ago = datetime.now() - timedelta(days=7)
+            # Get recent Reddit posts from database (last DATABASE_RETENTION_DAYS days)
+            week_ago = datetime.now() - timedelta(days=DATABASE_RETENTION_DAYS)
             cursor.execute('''
                 SELECT title, description, url, score, engagement, category, tags, timestamp, topic, author
                 FROM trending_topics
                 WHERE platform = 'Reddit' AND timestamp > ?
                 ORDER BY engagement DESC
                 LIMIT ?
-            ''', (week_ago, 200 - len(trending_topics)))
+            ''', (week_ago, MAX_TOPICS_PER_PLATFORM - len(trending_topics)))
             
             db_posts = cursor.fetchall()
             conn.close()
@@ -339,7 +320,7 @@ def fetch_reddit_trending():
                     trending_topics.append(topic)
                     seen_titles.add(post[0])
                     
-                    if len(trending_topics) >= 200:
+                    if len(trending_topics) >= MAX_TOPICS_PER_PLATFORM:
                         break
                         
             print(f"📦 Added {len(db_posts)} Reddit posts from database")
@@ -350,265 +331,9 @@ def fetch_reddit_trending():
     print(f"📊 Total unique Reddit posts: {len(trending_topics)}")
     return trending_topics
 
-def fetch_twitter_trending():
-    """Fetch trending topics from Twitter/X"""
-    # Twitter API disabled for now
-    print("Twitter trending disabled")
-    return []
-    
-    # if not twitter_client:
-    #     return []
-    
-    # try:
-    #     trending_topics = []
-        
-    #     # Get trending topics (limited by API access)
-    #     trends = twitter_client.get_place_trends(1)  # Worldwide trends
-    #     for trend in trends[0]['trends'][:20]:
-    #         topic = {
-    #             'platform': 'Twitter',
-    #             'title': trend['name'],
-    #             'description': f"Trending on Twitter with {trend['tweet_volume']} tweets" if trend['tweet_volume'] else "Trending on Twitter",
-    #             'url': trend['url'],
-    #             'score': trend['tweet_volume'] or 0,
-    #             'engagement': trend['tweet_volume'] or 0,
-    #             'category': 'Social Media',
-    #             'tags': ['twitter', 'trending'],
-    #             'timestamp': datetime.now().isoformat()
-    #         }
-    #         trending_topics.append(topic)
-    #         # Remove timestamp before saving to database
-    #         topic_for_db = {k: v for k, v in topic.items() if k != 'timestamp'}
-    #         save_trending_topic(**topic_for_db)
-        
-    #     return trending_topics
-    # except Exception as e:
-    #     print(f"Error fetching Twitter trending: {e}")
-    #     return []
+# Twitter API disabled - removed dead code
 
-def fetch_news_trending():
-    """Fetch trending news from News API with database fallback"""
-    trending_topics = []
-    
-    # First, try to get data from database
-    try:
-        print("📰 Checking database for recent news...")
-        conn = sqlite3.connect('viral_trends.db')
-        cursor = conn.cursor()
-        
-        # Get recent news articles from database (last 7 days)
-        week_ago = datetime.now() - timedelta(days=7)
-        cursor.execute('''
-            SELECT title, description, url, score, engagement, category, tags, timestamp, topic, author
-            FROM trending_topics
-            WHERE platform = 'News' AND timestamp > ?
-            ORDER BY RANDOM()
-            LIMIT 200
-        ''', (week_ago,))
-        
-        db_articles = cursor.fetchall()
-        conn.close()
-        
-        if db_articles:
-            print(f"📰 Found {len(db_articles)} recent news articles in database")
-            for article in db_articles:
-                topic = {
-                    'platform': 'News',
-                    'title': article[0],
-                    'description': article[1] or '',
-                    'url': article[2],
-                    'score': article[3],
-                    'engagement': article[4],
-                    'category': article[5],
-                    'tags': json.loads(article[6]) if article[6] else [],
-                    'topic': article[8] or 'general',
-                    'author': article[9] if len(article) > 9 else 'Unknown',
-                    'timestamp': article[7]
-                }
-                trending_topics.append(topic)
-                
-                if len(trending_topics) >= 200:
-                    break
-                    
-            print(f"📰 Using {len(trending_topics)} news articles from database")
-            return trending_topics
-            
-    except Exception as e:
-        print(f"❌ Database check failed: {e}")
-    
-    # If no database data, try News API
-    if not news_client:
-        print("❌ News client not available - News API key may be missing")
-        return []
-    
-    print("📰 Starting News API fetch...")
-    
-    try:
-        # Get top headlines
-        print("📰 Fetching top headlines...")
-        try:
-            headlines = news_client.get_top_headlines(language='en', page_size=100)
-            print(f"📰 Got {len(headlines.get('articles', []))} headlines")
-            
-            for article in headlines['articles']:
-                # Detect topic based on title and description
-                article_text = f"{article['title']} {article.get('description', '')}"
-                topic_category = detect_topic_category('news', article_text)
-                
-                topic = {
-                    'platform': 'News',
-                    'title': article['title'],
-                    'description': article['description'] or article['content'][:200] if article['content'] else '',
-                    'url': article['url'],
-                    'score': 100,  # Default score for news
-                    'engagement': 100,
-                    'category': article['source']['name'],
-                    'topic': topic_category,
-                    'tags': ['news', 'headlines', topic_category],
-                    'author': article.get('author', 'Unknown'),
-                    'timestamp': article['publishedAt']
-                }
-                trending_topics.append(topic)
-                # Remove timestamp before saving to database
-                topic_for_db = {k: v for k, v in topic.items() if k != 'timestamp'}
-                save_trending_topic(**topic_for_db)
-        except Exception as e:
-            print(f"❌ Error fetching headlines: {e}")
-            if 'rateLimited' in str(e):
-                print("📰 News API rate limited - using demo data")
-                # Create demo news data
-                demo_news = [
-                    {
-                        'title': 'Major Tech Breakthrough in AI Development',
-                        'description': 'Scientists announce revolutionary advances in artificial intelligence technology',
-                        'url': 'https://example.com/tech-news',
-                        'source': {'name': 'Tech News'},
-                        'publishedAt': datetime.now().isoformat(),
-                        'topic': 'technology'
-                    },
-                    {
-                        'title': 'Global Markets React to Economic Policy Changes',
-                        'description': 'Financial markets worldwide respond to new economic policies',
-                        'url': 'https://example.com/finance-news',
-                        'source': {'name': 'Finance Daily'},
-                        'publishedAt': datetime.now().isoformat(),
-                        'topic': 'finance'
-                    },
-                    {
-                        'title': 'Championship Game Draws Record Viewership',
-                        'description': 'Sports fans tune in for the most-watched championship in history',
-                        'url': 'https://example.com/sports-news',
-                        'source': {'name': 'Sports Central'},
-                        'publishedAt': datetime.now().isoformat(),
-                        'topic': 'sports'
-                    },
-                    {
-                        'title': 'New Cryptocurrency Regulations Announced',
-                        'description': 'Government introduces comprehensive crypto regulations',
-                        'url': 'https://example.com/crypto-news',
-                        'source': {'name': 'Crypto Times'},
-                        'publishedAt': datetime.now().isoformat(),
-                        'topic': 'crypto'
-                    },
-                    {
-                        'title': 'Cultural Festival Celebrates Global Diversity',
-                        'description': 'Annual festival showcases cultures from around the world',
-                        'url': 'https://example.com/culture-news',
-                        'source': {'name': 'Culture Weekly'},
-                        'publishedAt': datetime.now().isoformat(),
-                        'topic': 'culture'
-                    }
-                ]
-                
-                for i, article in enumerate(demo_news):
-                    topic = {
-                        'platform': 'News',
-                        'title': article['title'],
-                        'description': article['description'],
-                        'url': article['url'],
-                        'score': 100 - i * 10,
-                        'engagement': 100 - i * 10,
-                        'category': article['source']['name'],
-                        'topic': article['topic'],
-                        'tags': ['news', 'demo', article['topic']],
-                        'timestamp': article['publishedAt']
-                    }
-                    trending_topics.append(topic)
-                    topic_for_db = {k: v for k, v in topic.items() if k != 'timestamp'}
-                    save_trending_topic(**topic_for_db)
-        
-        # Try to get maximum articles from multiple sources (only if not rate limited)
-        if len(trending_topics) < 200 and 'rateLimited' not in str(e):
-            max_articles_target = 200  # Target 200 news articles total
-            
-            # Step 1: Try everything endpoint with different search terms
-            search_terms = [
-                # General trending
-                'trending OR breaking OR latest',
-                'technology OR science OR innovation',
-                'politics OR world OR international',
-                'entertainment OR celebrity OR movie',
-                'sports OR football OR basketball',
-                # Topic-specific searches
-                'cryptocurrency OR bitcoin OR ethereum OR crypto',  # Crypto
-                'sports OR nba OR nfl OR soccer OR tennis OR formula1',  # Sports
-                'finance OR stocks OR investing OR wallstreet OR economy',  # Finance
-                'culture OR movies OR music OR art OR books OR fashion',  # Culture
-                'memes OR viral OR funny OR humor OR jokes',  # Memes & Humor
-                'gaming OR video games OR esports OR gaming news',  # Gaming
-                'food OR cooking OR recipes OR restaurants OR cuisine'  # Lifestyle
-            ]
-            
-            for search_term in search_terms:
-                if len(trending_topics) >= max_articles_target:
-                    break
-                    
-                try:
-                    print(f"📰 Fetching news with search: {search_term}")
-                    everything = news_client.get_everything(
-                        q=search_term,
-                        language='en',
-                        sort_by='publishedAt',
-                        page_size=50
-                    )
-                    
-                    print(f"📰 Got {len(everything.get('articles', []))} articles for '{search_term}'")
-                    
-                    for article in everything['articles']:
-                        # Avoid duplicates
-                        if not any(topic['title'] == article['title'] for topic in trending_topics):
-                            # Detect topic based on title and description
-                            article_text = f"{article['title']} {article.get('description', '')}"
-                            topic_category = detect_topic_category('news', article_text)
-                            
-                            topic = {
-                                'platform': 'News',
-                                'title': article['title'],
-                                'description': article['description'] or article['content'][:200] if article['content'] else '',
-                                'url': article['url'],
-                                'score': 70,  # Lower score for everything endpoint
-                                'engagement': 70,
-                                'category': article['source']['name'],
-                                'topic': topic_category,
-                                'tags': ['news', 'trending', topic_category],
-                                'timestamp': article['publishedAt']
-                            }
-                            trending_topics.append(topic)
-                            # Remove timestamp before saving to database
-                            topic_for_db = {k: v for k, v in topic.items() if k != 'timestamp'}
-                            save_trending_topic(**topic_for_db)
-                            
-                            if len(trending_topics) >= max_articles_target:
-                                break
-                                
-                except Exception as e:
-                    print(f"❌ Error fetching news with '{search_term}': {e}")
-        
-        print(f"📰 Fetched {len(trending_topics)} total news articles")
-        return trending_topics
-    except Exception as e:
-        print(f"❌ Error fetching news trending: {e}")
-        return []
+
 
 def fetch_youtube_trending():
     """Fetch trending topics from YouTube with fallback to database"""
@@ -656,9 +381,9 @@ def fetch_youtube_trending():
                             topic = {
                                 'platform': 'YouTube',
                                 'title': snippet['title'],
-                                'description': snippet['description'][:200] if snippet['description'] else 'Trending video on YouTube',
+                                'description': snippet['description'][:MAX_DESCRIPTION_LENGTH] if snippet['description'] else 'Trending video on YouTube',
                                 'url': f"https://www.youtube.com/watch?v={video['id']}",
-                                'score': engagement // 1000,
+                                'score': engagement // ENGAGEMENT_SCORE_DIVISOR,
                                 'engagement': engagement,
                                 'category': snippet.get('categoryId', 'Video'),
                                 'topic': topic_category,
@@ -669,14 +394,14 @@ def fetch_youtube_trending():
                             trending_topics.append(topic)
                             seen_titles.add(snippet['title'])
                             
-                            if len(trending_topics) >= 200:  # Limit to 200 YouTube videos
+                            if len(trending_topics) >= MAX_TOPICS_PER_PLATFORM:  # Limit to 200 YouTube videos
                                 break
                                 
                 except Exception as e:
                     print(f"Error fetching from YouTube region {region}: {e}")
                     continue
                     
-                if len(trending_topics) >= 200:
+                if len(trending_topics) >= MAX_TOPICS_PER_PLATFORM:
                     break
                     
             print(f"✅ Fetched {len(trending_topics)} unique YouTube videos from API")
@@ -686,21 +411,21 @@ def fetch_youtube_trending():
             print("🔄 Falling back to database...")
     
     # If API failed or we need more data, get from database
-    if len(trending_topics) < 200:
+    if len(trending_topics) < MAX_TOPICS_PER_PLATFORM:
         try:
             print("📦 Fetching YouTube data from database...")
             conn = sqlite3.connect('viral_trends.db')
             cursor = conn.cursor()
             
-            # Get recent YouTube videos from database (last 7 days)
-            week_ago = datetime.now() - timedelta(days=7)
+            # Get recent YouTube videos from database (last DATABASE_RETENTION_DAYS days)
+            week_ago = datetime.now() - timedelta(days=DATABASE_RETENTION_DAYS)
             cursor.execute('''
                 SELECT title, description, url, score, engagement, category, tags, timestamp, topic, author
                 FROM trending_topics
                 WHERE platform = 'YouTube' AND timestamp > ?
                 ORDER BY RANDOM()
                 LIMIT ?
-            ''', (week_ago, 200 - len(trending_topics)))
+            ''', (week_ago, MAX_TOPICS_PER_PLATFORM - len(trending_topics)))
             
             db_videos = cursor.fetchall()
             conn.close()
@@ -724,7 +449,7 @@ def fetch_youtube_trending():
                     trending_topics.append(topic)
                     seen_titles.add(video[0])
                     
-                    if len(trending_topics) >= 200:
+                    if len(trending_topics) >= MAX_TOPICS_PER_PLATFORM:
                         break
                         
             print(f"📦 Added {len(db_videos)} YouTube videos from database")
@@ -747,7 +472,7 @@ def update_database_with_fresh_data():
         print("🔴 Fetching fresh Reddit data...")
         if reddit_client:
             try:
-                subreddits = ['trending', 'popular', 'all', 'news', 'technology']
+                subreddits = ['trending', 'popular', 'all', 'technology']
                 seen_titles = set()
                 
                 for subreddit in subreddits:
@@ -783,36 +508,15 @@ def update_database_with_fresh_data():
             except Exception as e:
                 print(f"❌ Reddit API failed in background task: {e}")
         
-        # 2. Fetch fresh News data
-        print("📰 Fetching fresh News data...")
-        if news_client:
+        # 2. Fetch fresh Google Trends data
+        print("🔥 Fetching fresh Google Trends data...")
+        if google_trends_client:
             try:
-                # Get top headlines
-                headlines = news_client.get_top_headlines(language='en', page_size=20)
-                
-                for article in headlines['articles']:
-                    article_text = f"{article['title']} {article.get('description', '')}"
-                    topic_category = detect_topic_category('news', article_text)
-                    
-                    topic = {
-                        'platform': 'News',
-                        'title': article['title'],
-                        'description': article['description'] or article['content'][:200] if article['content'] else '',
-                        'url': article['url'],
-                        'score': 100,
-                        'engagement': 100,
-                        'category': article['source']['name'],
-                        'author': article.get('author', 'Unknown'),
-                        'topic': topic_category,
-                        'tags': ['news', 'headlines', topic_category],
-                        'timestamp': article['publishedAt']
-                    }
-                    fresh_data.append(topic)
-                    
-                print(f"📰 Fetched {len([d for d in fresh_data if d['platform'] == 'News'])} fresh News articles")
-                
+                google_trends_data = fetch_google_trends_trending()
+                fresh_data.extend(google_trends_data)
+                print(f"🔥 Fetched {len(google_trends_data)} fresh Google Trends topics")
             except Exception as e:
-                print(f"❌ News API failed in background task: {e}")
+                print(f"❌ Google Trends API failed in background task: {e}")
         
         # 3. Fetch fresh YouTube data
         print("📺 Fetching fresh YouTube data...")
@@ -894,8 +598,8 @@ def update_database_with_fresh_data():
             conn = sqlite3.connect('viral_trends.db')
             cursor = conn.cursor()
             
-            # Remove old data (older than 7 days) to keep database fresh
-            week_ago = datetime.now() - timedelta(days=7)
+            # Remove old data (older than DATABASE_RETENTION_DAYS days) to keep database fresh
+            week_ago = datetime.now() - timedelta(days=DATABASE_RETENTION_DAYS)
             cursor.execute('DELETE FROM trending_topics WHERE timestamp < ?', (week_ago,))
             deleted_count = cursor.rowcount
             print(f"🗑️ Removed {deleted_count} old items from database")
@@ -996,22 +700,22 @@ def get_trending():
         conn = sqlite3.connect('viral_trends.db')
         cursor = conn.cursor()
         
-        # Get topics from last 7 days with balanced platform distribution
-        week_ago = datetime.now() - timedelta(days=7)
+        # Get topics from last DATABASE_RETENTION_DAYS days with balanced platform distribution
+        week_ago = datetime.now() - timedelta(days=DATABASE_RETENTION_DAYS)
         
         # Get top topics from each platform separately to ensure balanced distribution
         all_topics = []
         seen_titles = set()  # Track seen titles to avoid duplicates
         
-        # Get top 1000 from each platform to ensure we have enough data
-        for platform in ['Reddit', 'News', 'YouTube', 'Instagram', 'Facebook', 'Telegram']:
+        # Get top MAX_DATABASE_FETCH from each platform to ensure we have enough data
+        for platform in ['Reddit', 'YouTube', 'Google Trends']:
             cursor.execute('''
                 SELECT platform, title, description, url, score, engagement, category, tags, timestamp, topic, author
                 FROM trending_topics
                 WHERE platform = ? AND timestamp > ?
                 ORDER BY RANDOM()
-                LIMIT 1000
-            ''', (platform, week_ago))
+                LIMIT ?
+            ''', (platform, week_ago, MAX_DATABASE_FETCH))
             
             platform_topics = []
             for row in cursor.fetchall():
@@ -1044,14 +748,14 @@ def get_trending():
         else:  # random
             random.shuffle(all_topics)
         
-        # Limit to top 500 topics for performance
-        topics = all_topics[:500]
+        # Limit to top MAX_TOTAL_TOPICS for performance
+        topics = all_topics[:MAX_TOTAL_TOPICS]
         
         conn.close()
         
         # Cache the results (always cache with random order for future use)
         cache_data = {
-            'topics': all_topics[:500],  # Cache with random order
+            'topics': all_topics[:MAX_TOTAL_TOPICS],  # Cache with random order
             'timestamp': datetime.now().isoformat()
         }
         cache_manager.set_cached_data(CACHE_KEYS['trending_topics'], cache_data)
@@ -1163,7 +867,7 @@ def get_topic_trending(topic):
         conn = sqlite3.connect('viral_trends.db')
         cursor = conn.cursor()
         
-        week_ago = datetime.now() - timedelta(days=7)
+        week_ago = datetime.now() - timedelta(days=DATABASE_RETENTION_DAYS)
         
         # Build SQL query based on sorting parameters
         if sort_by == 'engagement':
@@ -1252,13 +956,13 @@ def get_available_topics():
         conn = sqlite3.connect('viral_trends.db')
         cursor = conn.cursor()
         
-        week_ago = datetime.now() - timedelta(days=7)
+        week_ago = datetime.now() - timedelta(days=DATABASE_RETENTION_DAYS)
         
         # Get top topics from each platform separately (same logic as /api/trending)
         all_topics = []
         seen_titles = set()
         
-        for platform in ['Reddit', 'News', 'YouTube']:
+        for platform in ['Reddit', 'YouTube']:
             cursor.execute('''
                 SELECT platform, title, description, url, score, engagement, category, tags, timestamp, topic, author
                 FROM trending_topics
@@ -1534,8 +1238,8 @@ def get_all_trending():
         conn = sqlite3.connect('viral_trends.db')
         cursor = conn.cursor()
         
-        # Get ALL topics from last 7 days (no limit)
-        week_ago = datetime.now() - timedelta(days=7)
+        # Get ALL topics from last DATABASE_RETENTION_DAYS days (no limit)
+        week_ago = datetime.now() - timedelta(days=DATABASE_RETENTION_DAYS)
         
         # Build SQL query based on sorting parameters
         if sort_by == 'engagement':
@@ -1628,41 +1332,7 @@ def trigger_database_cleanup():
             'error': str(e)
         }), 500
 
-def fetch_instagram_trending():
-    """Fetch trending topics from Instagram (simulated data for now)"""
-    print("📸 Instagram trending disabled - API access required")
-    return []
-    
-    # Instagram API requires business account and app review
-    # For now, return empty array
-    # In the future, this could use:
-    # - Instagram Basic Display API
-    # - Instagram Graph API (for business accounts)
-    # - Web scraping (with proper rate limiting)
-
-def fetch_facebook_trending():
-    """Fetch trending topics from Facebook (simulated data for now)"""
-    print("📘 Facebook trending disabled - API access required")
-    return []
-    
-    # Facebook API requires app review and permissions
-    # For now, return empty array
-    # In the future, this could use:
-    # - Facebook Graph API
-    # - Facebook Pages API
-    # - Web scraping (with proper rate limiting)
-
-def fetch_telegram_trending():
-    """Fetch trending topics from Telegram channels (simulated data for now)"""
-    print("📱 Telegram trending disabled - API access required")
-    return []
-    
-    # Telegram API requires bot token and channel access
-    # For now, return empty array
-    # In the future, this could use:
-    # - Telegram Bot API
-    # - Telegram Client API
-    # - Web scraping of public channels
+# Platform APIs disabled - removed dead code
 
 if __name__ == '__main__':
     # Initialize database
@@ -1679,4 +1349,4 @@ if __name__ == '__main__':
     print("⏰ Background scheduler is running - database will update every 15 minutes")
     
     # Run the Flask app
-    app.run(host='0.0.0.0', port=5000, debug=True) 
+    app.run(host=FLASK_HOST, port=FLASK_PORT, debug=True) 

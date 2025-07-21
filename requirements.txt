@@ -1,13 +1,13 @@
 flask==2.3.3
 flask-cors==4.0.0
 praw==7.7.1
-newsapi-python==0.2.7
 google-api-python-client==2.108.0
 google-auth-httplib2==0.1.1
 google-auth-oauthlib==1.1.0
 requests==2.31.0
 apscheduler==3.10.4
 python-dotenv==1.0.0
+pytrends==4.9.2
 
 # Social Media APIs
 tweepy==4.14.0
@@ -16,8 +16,7 @@ instagram-private-api==1.6.0
 python-telegram-bot==20.7
 linkedin-api==2.0.0
 
-# News & Media APIs
-gnews==0.2.7
+# Media APIs
 # mediastack==0.1.0  # Package not available, commented out
 
 # Content Aggregation APIs

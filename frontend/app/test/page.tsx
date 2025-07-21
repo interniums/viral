@@ -36,19 +36,6 @@ export default function TestPage() {
       topic: 'general',
       author: 'Amazing Channel',
     },
-    {
-      platform: 'News',
-      title: 'Breaking News Article',
-      description: 'This is a test news article to show the platform icon and author information.',
-      url: 'https://news.com/test',
-      score: 100,
-      engagement: 200,
-      category: 'Breaking News',
-      tags: ['news', 'breaking', 'demo'],
-      timestamp: new Date().toISOString(),
-      topic: 'politics',
-      author: 'John Smith',
-    },
   ]
 
   useEffect(() => {

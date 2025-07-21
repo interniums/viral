@@ -7,7 +7,7 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'Viral Trending Topics',
   description: 'Real-time viral trending topics from Reddit, Twitter, and other social platforms',
-  keywords: 'trending, viral, reddit, twitter, social media, news',
+  keywords: 'trending, viral, reddit, twitter, social media, youtube',
   authors: [{ name: 'Viral Trending Team' }],
   icons: {
     icon: [
