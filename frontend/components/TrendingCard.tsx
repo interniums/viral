@@ -3,7 +3,7 @@ import { ExternalLink, TrendingUp, Clock, User } from 'lucide-react'
 import { TrendingCardProps } from '../types'
 import PlatformIcon from './PlatformIcon'
 
-export default function TrendingCard({ topic, rank }: TrendingCardProps) {
+export default function TrendingCard({ topic, rank, className = '', style }: TrendingCardProps) {
   const getPlatformColor = (platform: string) => {
     switch (platform.toLowerCase()) {
       case 'reddit':
@@ -60,7 +60,8 @@ export default function TrendingCard({ topic, rank }: TrendingCardProps) {
 
   return (
     <div
-      className="trending-card group cursor-pointer"
+      className={`trending-card group cursor-pointer ${className}`}
+      style={style}
       onClick={handleCardClick}
       role="button"
       tabIndex={0}

@@ -18,14 +18,14 @@ linkedin-api==2.0.0
 
 # News & Media APIs
 gnews==0.2.7
-mediastack==0.1.0
+# mediastack==0.1.0  # Package not available, commented out
 
 # Content Aggregation APIs
 producthunt==0.1.0
 
 # Crypto & Finance APIs
 pycoingecko==3.1.0
-coinmarketcap==2.1.0
+coinmarketcap==5.0.3
 alpha-vantage==2.3.1
 
 # Entertainment APIs
