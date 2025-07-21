@@ -9,6 +9,14 @@ export const metadata: Metadata = {
   description: 'Real-time viral trending topics from Reddit, Twitter, and other social platforms',
   keywords: 'trending, viral, reddit, twitter, social media, news',
   authors: [{ name: 'Viral Trending Team' }],
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', sizes: 'any' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
+  manifest: '/manifest.json',
 }
 
 export const viewport: Viewport = {

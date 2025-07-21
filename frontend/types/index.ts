@@ -24,6 +24,7 @@ export interface PlatformFilterProps {
   onPlatformChange: (platforms: string[]) => void
   topics: Topic[]
   stats?: Stats
+  loading?: boolean
 }
 
 export interface TopicFilterProps {
@@ -31,11 +32,14 @@ export interface TopicFilterProps {
   onTopicChange: (topics: string[]) => void
   selectedPlatforms: string[]
   allTopics: Topic[]
+  loading?: boolean
 }
 
 export interface TrendingCardProps {
   topic: Topic
   rank: number
+  className?: string
+  style?: React.CSSProperties
 }
 
 export interface StatsCardProps {
@@ -43,6 +47,7 @@ export interface StatsCardProps {
   value: number
   icon: React.ReactNode
   color: 'blue' | 'green' | 'red' | 'orange' | 'purple'
+  className?: string
 }
 
 export interface SortFilterProps {

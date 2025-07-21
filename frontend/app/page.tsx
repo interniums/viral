@@ -2,11 +2,17 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { TrendingUp, BarChart3, Globe, Zap } from 'lucide-react'
+import { Swiper, SwiperSlide } from 'swiper/react'
+import { FreeMode, Scrollbar } from 'swiper/modules'
+import 'swiper/css'
+import 'swiper/css/free-mode'
+import 'swiper/css/scrollbar'
 import TrendingCard from '../components/TrendingCard'
 import StatsCard from '../components/StatsCard'
 import PlatformFilter from '../components/PlatformFilter'
 import TopicFilter from '../components/TopicFilter'
 import SortFilter from '../components/SortFilter'
+import PlatformIcon from '../components/PlatformIcon'
 import { Topic, Stats } from '../types'
 
 // Constants
@@ -19,8 +25,11 @@ const DB_CHECK_INTERVAL = 60000 // 1 minute
 
 // Loading skeleton components
 const StatsSkeleton = () => (
-  <div className="card p-6 border-2 bg-white">
-    <div className="flex items-center justify-between">
+  <div
+    className="card p-6 border-2 min-w-[200px] flex-shrink-0 bg-gray-50 border-gray-200 mr-4"
+    style={{ minHeight: '120px' }}
+  >
+    <div className="flex items-center justify-between h-full">
       <div>
         <div className="h-4 rounded w-20 mb-2 animate-pulse bg-gray-200"></div>
         <div className="h-8 rounded w-16 animate-pulse bg-gray-200"></div>
@@ -30,8 +39,21 @@ const StatsSkeleton = () => (
   </div>
 )
 
-const TrendingCardSkeleton = ({ index }: { index: number }) => (
-  <div key={`skeleton-${index}`} className="trending-card bg-white">
+const TrendingCardSkeleton = ({
+  index,
+  className = '',
+  style,
+}: {
+  index: number
+  className?: string
+  style?: React.CSSProperties
+}) => (
+  <div
+    key={`skeleton-${index}`}
+    className={`trending-card bg-white ${className}`}
+    style={{ minHeight: '280px', ...style }}
+  >
+    {/* Header */}
     <div className="flex items-start justify-between mb-4">
       <div className="flex items-center space-x-2">
         <div className="w-8 h-8 rounded animate-pulse bg-gray-200"></div>
@@ -39,12 +61,42 @@ const TrendingCardSkeleton = ({ index }: { index: number }) => (
       </div>
       <div className="w-20 h-6 rounded animate-pulse bg-gray-200"></div>
     </div>
+
+    {/* Title */}
     <div className="h-6 rounded mb-2 animate-pulse bg-gray-200"></div>
+    <div className="h-6 rounded mb-2 animate-pulse bg-gray-200 w-4/5"></div>
+
+    {/* Description */}
+    <div className="h-4 rounded mb-2 animate-pulse bg-gray-200"></div>
     <div className="h-4 rounded mb-2 animate-pulse bg-gray-200"></div>
     <div className="h-4 rounded mb-4 w-3/4 animate-pulse bg-gray-200"></div>
-    <div className="flex items-center justify-between">
-      <div className="w-16 h-4 rounded animate-pulse bg-gray-200"></div>
-      <div className="w-12 h-4 rounded animate-pulse bg-gray-200"></div>
+
+    {/* Topic Badge */}
+    <div className="w-16 h-6 rounded-full mb-3 animate-pulse bg-gray-200"></div>
+
+    {/* Tags */}
+    <div className="flex gap-1 mb-4">
+      <div className="w-12 h-5 rounded-full animate-pulse bg-gray-200"></div>
+      <div className="w-16 h-5 rounded-full animate-pulse bg-gray-200"></div>
+      <div className="w-14 h-5 rounded-full animate-pulse bg-gray-200"></div>
+    </div>
+
+    {/* Author */}
+    <div className="flex items-center mb-3">
+      <div className="w-4 h-4 rounded mr-1 animate-pulse bg-gray-200"></div>
+      <div className="w-20 h-4 rounded animate-pulse bg-gray-200"></div>
+    </div>
+
+    {/* Footer */}
+    <div className="flex items-center justify-between mt-auto">
+      <div className="flex items-center">
+        <div className="w-4 h-4 rounded mr-1 animate-pulse bg-gray-200"></div>
+        <div className="w-16 h-4 rounded animate-pulse bg-gray-200"></div>
+      </div>
+      <div className="flex items-center">
+        <div className="w-4 h-4 rounded mr-1 animate-pulse bg-gray-200"></div>
+        <div className="w-8 h-4 rounded animate-pulse bg-gray-200"></div>
+      </div>
     </div>
   </div>
 )
@@ -54,6 +106,9 @@ export default function Home() {
   const [topics, setTopics] = useState<Topic[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [topicsLoading, setTopicsLoading] = useState(true)
+  const [statsLoading, setStatsLoading] = useState(true)
+  const [filtersLoading, setFiltersLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(DEFAULT_PLATFORMS)
   const [selectedTopics, setSelectedTopics] = useState<string[]>([])
@@ -65,76 +120,15 @@ export default function Home() {
   const [showLoadMore, setShowLoadMore] = useState(true)
   const [showScrollToTop, setShowScrollToTop] = useState(false)
 
-  // Grab scrolling functionality
-  const [isDragging, setIsDragging] = useState(false)
-  const [startX, setStartX] = useState(0)
-  const [scrollLeft, setScrollLeft] = useState(0)
-  const [showLeftFade, setShowLeftFade] = useState(false)
-  const [showRightFade, setShowRightFade] = useState(false)
-  const statsContainerRef = useRef<HTMLDivElement>(null)
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!statsContainerRef.current) return
-    setIsDragging(true)
-    setStartX(e.pageX - statsContainerRef.current.offsetLeft)
-    setScrollLeft(statsContainerRef.current.scrollLeft)
-  }
-
-  const handleMouseLeave = () => {
-    setIsDragging(false)
-  }
-
-  const handleMouseUp = () => {
-    setIsDragging(false)
-  }
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !statsContainerRef.current) return
-    e.preventDefault()
-    const x = e.pageX - statsContainerRef.current.offsetLeft
-    const walk = (x - startX) * 2 // Scroll speed multiplier
-    statsContainerRef.current.scrollLeft = scrollLeft - walk
-  }
-
-  // Touch event handlers for mobile
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (!statsContainerRef.current) return
-    setIsDragging(true)
-    setStartX(e.touches[0].pageX - statsContainerRef.current.offsetLeft)
-    setScrollLeft(statsContainerRef.current.scrollLeft)
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging || !statsContainerRef.current) return
-    e.preventDefault()
-    const x = e.touches[0].pageX - statsContainerRef.current.offsetLeft
-    const walk = (x - startX) * 2 // Scroll speed multiplier
-    statsContainerRef.current.scrollLeft = scrollLeft - walk
-  }
-
-  const handleTouchEnd = () => {
-    setIsDragging(false)
-  }
-
-  const handleScroll = () => {
-    if (statsContainerRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = statsContainerRef.current
-      setShowLeftFade(scrollLeft > 0)
-      setShowRightFade(scrollLeft < scrollWidth - clientWidth - 1)
-    }
-  }
-
-  // Check fade state on mount and resize
-  useEffect(() => {
-    handleScroll()
-    window.addEventListener('resize', handleScroll)
-    return () => window.removeEventListener('resize', handleScroll)
-  }, [])
-
   // API fetch functions
   const fetchAllTrendingTopics = useCallback(async () => {
     try {
+      setTopicsLoading(true)
       setError(null)
+
+      // Start minimum loading timer
+      const loadingStartTime = Date.now()
+
       const response = await fetch(`/api/trending/all?sort=${selectedSort}&order=${selectedOrder}`)
       const data = await response.json()
 
@@ -144,14 +138,25 @@ export default function Home() {
       } else {
         setError(data.error || 'Failed to fetch trending topics')
       }
+
+      // Ensure minimum 1 second loading time for better UX
+      const elapsedTime = Date.now() - loadingStartTime
+      const minLoadingTime = 1000 // 1 second
+
+      if (elapsedTime < minLoadingTime) {
+        await new Promise((resolve) => setTimeout(resolve, minLoadingTime - elapsedTime))
+      }
     } catch (error) {
       setError('Network error while fetching trending topics')
       console.error('❌ Error fetching all trending topics:', error)
+    } finally {
+      setTopicsLoading(false)
     }
   }, [selectedSort, selectedOrder])
 
   const fetchStats = useCallback(async () => {
     try {
+      setStatsLoading(true)
       const response = await fetch('/api/stats', {
         headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
       })
@@ -163,6 +168,8 @@ export default function Home() {
       }
     } catch (error) {
       console.error('❌ Error fetching stats:', error)
+    } finally {
+      setStatsLoading(false)
     }
   }, [])
 
@@ -198,15 +205,20 @@ export default function Home() {
   // Event handlers
   const handleInitialLoad = useCallback(async () => {
     setLoading(true)
+    setTopicsLoading(true)
+    setFiltersLoading(true)
     setError(null)
     try {
-      await Promise.all([fetchAllTrendingTopics(), fetchStats(), fetchLastUpdate()])
+      await Promise.all([fetchStats(), fetchLastUpdate()])
+      // Fetch topics separately to avoid dependency issues
+      await fetchAllTrendingTopics()
     } catch (error) {
       setError('Failed to load initial data')
     } finally {
       setLoading(false)
+      setFiltersLoading(false)
     }
-  }, [fetchAllTrendingTopics, fetchStats, fetchLastUpdate])
+  }, [fetchStats, fetchLastUpdate])
 
   const handleLoadMore = useCallback(() => {
     const newCount = Math.min(displayCount + LOAD_MORE_INCREMENT, filteredTopics.length)
@@ -260,7 +272,7 @@ export default function Home() {
       clearInterval(interval)
       clearInterval(dbUpdateInterval)
     }
-  }, [handleInitialLoad, fetchAllTrendingTopics, fetchLastUpdate, fetchStats, lastDbUpdate])
+  }, [handleInitialLoad, fetchLastUpdate, lastDbUpdate])
 
   useEffect(() => {
     if (topics.length > 0) {
@@ -301,10 +313,6 @@ export default function Home() {
 
   // Render helpers
   const renderStatsCards = () => {
-    if (loading) {
-      return Array.from({ length: 7 }).map((_, index) => <StatsSkeleton key={index} />)
-    }
-
     const platformStats = [
       {
         title: 'Total Topics (7d)',
@@ -315,72 +323,88 @@ export default function Home() {
       {
         title: 'Reddit Topics',
         value: stats?.platform_stats?.Reddit || 0,
-        icon: <span>🔴</span>,
+        icon: <PlatformIcon platform="Reddit" size={24} />,
         color: 'orange' as const,
       },
       {
         title: 'News Articles',
         value: stats?.platform_stats?.News || 0,
-        icon: <span>📰</span>,
+        icon: <PlatformIcon platform="News" size={24} />,
         color: 'green' as const,
       },
       {
         title: 'YouTube Videos',
         value: stats?.platform_stats?.YouTube || 0,
-        icon: <span>📺</span>,
+        icon: <PlatformIcon platform="YouTube" size={24} />,
         color: 'red' as const,
       },
       {
         title: 'Instagram Posts',
         value: stats?.platform_stats?.Instagram || 0,
-        icon: <span>📸</span>,
+        icon: <PlatformIcon platform="Instagram" size={24} />,
         color: 'purple' as const,
       },
       {
         title: 'Facebook Posts',
         value: stats?.platform_stats?.Facebook || 0,
-        icon: <span>📘</span>,
+        icon: <PlatformIcon platform="Facebook" size={24} />,
         color: 'blue' as const,
       },
       {
         title: 'Telegram Posts',
         value: stats?.platform_stats?.Telegram || 0,
-        icon: <span>📱</span>,
+        icon: <PlatformIcon platform="Telegram" size={24} />,
         color: 'green' as const,
       },
     ]
 
     return platformStats.map((stat, index) => (
-      <StatsCard key={index} title={stat.title} value={stat.value} icon={stat.icon} color={stat.color} />
+      <StatsCard
+        key={index}
+        title={stat.title}
+        value={stat.value}
+        icon={stat.icon}
+        color={stat.color}
+        className="mr-4"
+      />
     ))
   }
 
   const renderTrendingCards = () => {
-    if (loading) {
-      return Array.from({ length: 12 }).map((_, index) => <TrendingCardSkeleton key={index} index={index} />)
+    if (topicsLoading) {
+      return Array.from({ length: 12 }).map((_, index) => (
+        <TrendingCardSkeleton key={`skeleton-${index}`} index={index} className="animate-in fade-in" />
+      ))
     }
 
     return displayedTopics.map((topic, index) => (
-      <TrendingCard key={`${topic.platform}-${index}`} topic={topic} rank={index + 1} />
+      <TrendingCard
+        key={`${topic.platform}-${topic.title}-${index}`}
+        topic={topic}
+        rank={index + 1}
+        className="animate-in fade-in"
+      />
     ))
   }
 
   const renderTopicsCount = () => {
-    if (loading) return <p className="text-gray-600">Loading trending topics...</p>
-
     return (
-      <p className="text-gray-600">
-        Showing {Math.min(displayCount, filteredTopics.length)} of {filteredTopics.length} trending topics
-        {selectedPlatforms.length > 0 && ` from ${selectedPlatforms.map((p) => p.toLowerCase()).join(', ')}`}
-        {selectedTopics.length > 0 && ` in ${selectedTopics.map((t) => t).join(', ')}`}
-        {selectedSort !== 'random' && ` sorted by ${selectedSort}`}
-        {selectedOrder === 'desc' ? ' (descending)' : ' (ascending)'}
-      </p>
+      <div className="flex items-center space-x-2">
+        <p className="text-gray-600">
+          Showing {Math.min(displayCount, filteredTopics.length)} of {filteredTopics.length} trending topics
+        </p>
+        {topicsLoading && (
+          <div className="flex items-center space-x-1 text-blue-600">
+            <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <span className="text-sm">Sorting...</span>
+          </div>
+        )}
+      </div>
     )
   }
 
   const renderEmptyState = () => {
-    if (loading || filteredTopics.length > 0) return null
+    if (topicsLoading || filteredTopics.length > 0) return null
 
     return (
       <div className="text-center py-12">
@@ -409,7 +433,14 @@ export default function Home() {
           Real-time trending topics from Reddit, News, and other social platforms
         </p>
         <div className="flex items-center justify-center text-sm text-gray-500">
-          {lastDbUpdate ? <>Last database update: {new Date(lastDbUpdate).toLocaleTimeString()}</> : <>Loading...</>}
+          {lastDbUpdate ? (
+            <>Last database update: {new Date(lastDbUpdate).toLocaleTimeString()}</>
+          ) : (
+            <div className="flex items-center space-x-2">
+              <div className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+              <span>Loading database status...</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -421,46 +452,40 @@ export default function Home() {
       )}
 
       {/* Stats Cards */}
-      <div className="mb-8 relative">
-        <div
-          ref={statsContainerRef}
-          onMouseDown={handleMouseDown}
-          onMouseLeave={handleMouseLeave}
-          onMouseUp={handleMouseUp}
-          onMouseMove={handleMouseMove}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onScroll={handleScroll}
-          className={`flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 cursor-grab active:cursor-grabbing select-none transition-opacity duration-200 ${
-            isDragging ? 'opacity-90' : 'opacity-100'
-          }`}
-        >
-          {renderStatsCards()}
-        </div>
-        {/* Gradient fade indicators - only show when needed */}
-        {showLeftFade && (
-          <div className="absolute left-0 top-0 bottom-4 w-8 bg-gradient-to-r from-gray-50 to-transparent pointer-events-none z-10"></div>
-        )}
-        {showRightFade && (
-          <div className="absolute right-0 top-0 bottom-4 w-8 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none z-10"></div>
-        )}
+      <div className="mb-8">
+        <Swiper modules={[FreeMode]} slidesPerView="auto" freeMode={true} className="stats-swiper">
+          {statsLoading
+            ? // Loading skeletons with proper SwiperSlide structure
+              Array.from({ length: 7 }).map((_, index) => (
+                <SwiperSlide key={index} style={{ width: 'auto' }}>
+                  <StatsSkeleton />
+                </SwiperSlide>
+              ))
+            : // Actual stats cards
+              renderStatsCards().map((card, index) => (
+                <SwiperSlide key={index} style={{ width: 'auto' }}>
+                  {card}
+                </SwiperSlide>
+              ))}
+        </Swiper>
       </div>
 
       {/* Filters Section */}
       <div className="mb-6 space-y-4">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
           <PlatformFilter
             selectedPlatforms={selectedPlatforms}
             onPlatformChange={handlePlatformChange}
             topics={topics}
             stats={stats || undefined}
+            loading={filtersLoading}
           />
           <TopicFilter
             selectedTopics={selectedTopics}
             onTopicChange={setSelectedTopics}
             selectedPlatforms={selectedPlatforms}
             allTopics={topics}
+            loading={filtersLoading}
           />
         </div>
       </div>
