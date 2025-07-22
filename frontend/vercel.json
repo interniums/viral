@@ -1,0 +1,13 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/update-database",
+      "schedule": "*/15 * * * *"
+    }
+  ],
+  "functions": {
+    "app/api/cron/update-database/route.ts": {
+      "maxDuration": 300
+    }
+  }
+}
