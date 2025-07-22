@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { dataFetcherService } from '../../../../lib/services/dataFetcher'
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,14 +11,13 @@ export async function POST(request: NextRequest) {
 
     console.log('🔄 Manual cron job triggered...')
 
-    // Temporarily disabled due to Drizzle ORM issues
-    // TODO: Fix dataFetcher service and re-enable
+    // Run the database update
+    await dataFetcherService.updateDatabaseWithFreshData()
 
     return NextResponse.json({
       success: true,
-      message: 'Manual database update completed successfully (temporarily disabled)',
+      message: 'Manual database update completed successfully',
       timestamp: new Date().toISOString(),
-      note: 'API temporarily disabled - fixing Drizzle ORM issues',
     })
   } catch (error) {
     console.error('❌ Manual cron job failed:', error)
@@ -41,14 +41,13 @@ export async function GET(request: NextRequest) {
 
     console.log('🔄 Manual cron job triggered (GET)...')
 
-    // Temporarily disabled due to Drizzle ORM issues
-    // TODO: Fix dataFetcher service and re-enable
+    // Run the database update
+    await dataFetcherService.updateDatabaseWithFreshData()
 
     return NextResponse.json({
       success: true,
-      message: 'Manual database update completed successfully (temporarily disabled)',
+      message: 'Manual database update completed successfully',
       timestamp: new Date().toISOString(),
-      note: 'API temporarily disabled - fixing Drizzle ORM issues',
     })
   } catch (error) {
     console.error('❌ Manual cron job failed:', error)

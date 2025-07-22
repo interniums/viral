@@ -1,15 +1,17 @@
 import { NextResponse } from 'next/server'
+import { dataFetcherService } from '../../../../lib/services/dataFetcher'
 
 export async function POST() {
   try {
-    // Temporarily disabled due to Drizzle ORM issues
-    // TODO: Fix dataFetcher service and re-enable
+    // Run update in background (fire and forget)
+    dataFetcherService.updateDatabaseWithFreshData().catch((error) => {
+      console.error('Background update failed:', error)
+    })
 
     return NextResponse.json({
       success: true,
-      message: 'Background update triggered successfully (temporarily disabled)',
+      message: 'Background update triggered successfully',
       timestamp: new Date().toISOString(),
-      note: 'API temporarily disabled - fixing Drizzle ORM issues',
     })
   } catch (error) {
     console.error('Error triggering update:', error)

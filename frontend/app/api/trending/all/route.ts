@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { dataFetcherService } from '../../../../lib/services/dataFetcher'
 
 export async function GET(request: NextRequest) {
   try {
@@ -6,9 +7,7 @@ export async function GET(request: NextRequest) {
     const sortBy = searchParams.get('sort') || 'random'
     const sortOrder = searchParams.get('order') || 'desc'
 
-    // Temporarily disabled due to Drizzle ORM issues
-    // TODO: Fix dataFetcher service and re-enable
-    const topics: any[] = []
+    const topics = await dataFetcherService.fetchTrendingTopics(sortBy, sortOrder)
 
     return NextResponse.json({
       success: true,
@@ -18,7 +17,6 @@ export async function GET(request: NextRequest) {
       cached: false,
       sort_by: sortBy,
       sort_order: sortOrder,
-      message: 'API temporarily disabled - fixing Drizzle ORM issues',
     })
   } catch (error) {
     console.error('Error in all trending API:', error)

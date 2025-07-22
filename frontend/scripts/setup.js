@@ -8,15 +8,16 @@
 const fs = require('fs')
 const path = require('path')
 
-console.log('🚀 Setting up Viral Trending Topics...')
+console.log('🚀 Setting up Viral Trending Topics with Supabase...')
 
 // Check if .env.local exists
 const envPath = path.join(__dirname, '..', '.env.local')
 if (!fs.existsSync(envPath)) {
   console.log('📝 Creating .env.local file...')
 
-  const envContent = `# Database
-DATABASE_URL="postgresql://username:password@host:port/database"
+  const envContent = `# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL="your_supabase_project_url"
+NEXT_PUBLIC_SUPABASE_ANON_KEY="your_supabase_anon_key"
 
 # API Keys
 REDDIT_CLIENT_ID="your_reddit_client_id"
@@ -44,17 +45,17 @@ NEXTAUTH_URL="http://localhost:3000"
 const sqlitePath = path.join(__dirname, '..', '..', 'viral_trends.db')
 if (fs.existsSync(sqlitePath)) {
   console.log('📦 Found SQLite database for migration')
-  console.log('💡 Run "npm run migrate-data" to migrate data to PostgreSQL')
+  console.log('💡 You can manually migrate data to Supabase if needed')
 } else {
   console.log('⚠️ No SQLite database found for migration')
-  console.log('💡 You can start fresh with the new PostgreSQL database')
+  console.log('💡 You can start fresh with the new Supabase database')
 }
 
 console.log('\n📋 Next steps:')
-console.log('1. Update .env.local with your actual values')
-console.log('2. Create a Vercel Postgres database')
-console.log('3. Run: npm run db:generate')
-console.log('4. Run: npm run db:migrate')
-console.log('5. (Optional) Run: npm run migrate-data')
-console.log('6. Run: npm run dev')
+console.log('1. Update .env.local with your Supabase credentials')
+console.log('2. Create a Supabase project at https://supabase.com')
+console.log('3. Run the SQL script from SUPABASE_SETUP.md in your Supabase SQL Editor')
+console.log('4. Test the connection: npm run dev')
+console.log('5. Deploy to Vercel with your environment variables')
+console.log('\n📖 See SUPABASE_SETUP.md for detailed instructions')
 console.log('\n🎉 Setup complete!')

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { dataFetcherService } from '../../../../lib/services/dataFetcher'
 
 // This endpoint is called by GitHub Actions cron job
 // Runs every 15 minutes via GitHub Actions workflow
@@ -18,12 +19,12 @@ export async function GET(request: Request) {
 
     console.log('⏰ GitHub Actions cron job triggered - updating database...')
 
-    // Temporarily disabled due to Drizzle ORM issues
-    // TODO: Fix dataFetcher service and re-enable
+    // Run the database update
+    await dataFetcherService.updateDatabaseWithFreshData()
 
     return NextResponse.json({
       success: true,
-      message: 'Cron endpoint is working (dataFetcher temporarily disabled)',
+      message: 'Cron endpoint is working - database updated successfully',
       timestamp: new Date().toISOString(),
       source: 'github-actions',
     })
