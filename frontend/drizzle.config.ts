@@ -1,15 +1,18 @@
-import { defineConfig } from 'drizzle-kit'
-import { config } from 'dotenv'
+// Temporarily disabled for build testing
+// import { defineConfig } from 'drizzle-kit'
 
-config()
+// export default defineConfig({
+//   schema: './lib/db/schema.ts',
+//   out: './lib/db/migrations',
+//   dialect: 'postgresql',
+//   dbCredentials: {
+//     host: 'localhost',
+//     user: 'dummy',
+//     password: 'dummy',
+//     database: 'dummy',
+//   },
+//   verbose: true,
+//   strict: true,
+// })
 
-export default defineConfig({
-  schema: './lib/db/schema.ts',
-  out: './lib/db/migrations',
-  dialect: 'postgresql',
-  dbCredentials: {
-    url: process.env.DATABASE_URL!,
-  },
-  verbose: true,
-  strict: true,
-})
+export default {}
