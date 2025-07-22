@@ -169,11 +169,12 @@ npm run dev
 
 ### Cron Jobs
 
-Cron jobs are automatically configured via `vercel.json`:
+Cron jobs are configured via GitHub Actions:
 
-- Runs every 15 minutes
+- Runs every 15 minutes via GitHub Actions workflow
 - Updates database with fresh data from APIs
 - Requires `CRON_SECRET` environment variable
+- See `CRON_JOBS_GUIDE.md` for setup instructions
 
 ## 🔄 API Endpoints
 
@@ -206,8 +207,9 @@ All endpoints maintain the same interface as the Python version:
 
 ## 📊 Data Flow
 
-1. **Cron Job** (every 15 minutes):
+1. **GitHub Actions Cron Job** (every 15 minutes):
 
+   - Triggers via GitHub Actions workflow
    - Fetches fresh data from Reddit, YouTube, Google Trends
    - Saves to PostgreSQL database
    - Clears cache
@@ -263,7 +265,7 @@ export class CacheManager {
 1. **Data Migration**: Existing SQLite data needs to be migrated to PostgreSQL
 2. **API Keys**: Ensure all API keys are properly configured
 3. **Rate Limits**: Monitor API rate limits for Reddit and YouTube
-4. **Cron Jobs**: Verify cron jobs are running in Vercel
+4. **Cron Jobs**: Verify GitHub Actions workflow is running
 
 ### Performance Improvements
 
