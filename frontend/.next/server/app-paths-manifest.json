@@ -1,13 +1,13 @@
 {
   "/_not-found": "app/_not-found.js",
-  "/api/cron/manual/route": "app/api/cron/manual/route.js",
   "/api/cron/test/route": "app/api/cron/test/route.js",
+  "/api/cron/manual/route": "app/api/cron/manual/route.js",
   "/api/cron/update-database/route": "app/api/cron/update-database/route.js",
   "/api/last-update/route": "app/api/last-update/route.js",
   "/api/stats/route": "app/api/stats/route.js",
   "/api/test/route": "app/api/test/route.js",
-  "/api/trending/all/route": "app/api/trending/all/route.js",
   "/api/trending/route": "app/api/trending/route.js",
+  "/api/trending/all/route": "app/api/trending/all/route.js",
   "/api/update/trigger/route": "app/api/update/trigger/route.js",
   "/page": "app/page.js"
 }
