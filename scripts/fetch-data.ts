@@ -104,7 +104,7 @@ async function fetchData() {
     console.log('\n📊 Current Database Stats:')
     console.log(`Total topics (7 days): ${stats.total_topics_7d}`)
     console.log('\nPlatform distribution:')
-    Object.entries(stats.platforms).forEach(([platform, count]) => {
+    Object.entries(stats.platform_stats).forEach(([platform, count]) => {
       console.log(`${platform}: ${count} topics`)
     })
 
