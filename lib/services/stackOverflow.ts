@@ -1,3 +1,6 @@
+import { BaseService } from './base'
+import { Platform, Topic } from '../constants/enums'
+
 interface StackOverflowQuestion {
   question_id: number
   title: string
@@ -15,7 +18,7 @@ interface StackOverflowQuestion {
 }
 
 interface StackOverflowTopic {
-  platform: string
+  platform: Platform
   title: string
   description: string
   url: string
@@ -24,13 +27,29 @@ interface StackOverflowTopic {
   timestamp: Date
   category: string
   tags: string[]
-  topic: string
+  topic: Topic
   author: string
 }
 
-export class StackOverflowService {
+export class StackOverflowService extends BaseService {
   private baseUrl = 'https://api.stackexchange.com/2.3'
   private site = 'stackoverflow'
+
+  private transformQuestions(questions: any[]): StackOverflowTopic[] {
+    return questions.map((question) => ({
+      platform: Platform.StackOverflow,
+      title: question.title,
+      description: `Score: ${question.score} | Answers: ${question.answer_count} | Views: ${question.view_count}`,
+      url: question.link,
+      score: question.score,
+      engagement: question.answer_count + question.view_count,
+      timestamp: new Date(question.creation_date * 1000),
+      category: this.detectCategory(question.tags),
+      tags: question.tags,
+      topic: Topic.Programming,
+      author: question.owner.display_name,
+    }))
+  }
 
   async fetchTrendingTopics(limit = 50): Promise<StackOverflowTopic[]> {
     try {
@@ -52,7 +71,7 @@ export class StackOverflowService {
       const trendingTopics: StackOverflowTopic[] = uniqueQuestions
         .slice(0, limit)
         .map((question) => ({
-          platform: 'Stack Overflow',
+          platform: Platform.StackOverflow,
           title: question.title,
           description: `Score: ${question.score} | Answers: ${question.answer_count} | Views: ${question.view_count}`,
           url: question.link,
@@ -61,7 +80,7 @@ export class StackOverflowService {
           timestamp: new Date(question.creation_date * 1000),
           category: this.detectCategory(question.tags),
           tags: question.tags,
-          topic: 'programming',
+          topic: Topic.Programming,
           author: question.owner.display_name,
         }))
         .sort((a, b) => b.score - a.score)
@@ -85,27 +104,36 @@ export class StackOverflowService {
   }
 
   private detectCategory(tags: string[]): string {
-    const lowerTags = tags.map((tag) => tag.toLowerCase())
+    const lowerTags = tags.map((t) => t.toLowerCase())
 
-    if (lowerTags.some((tag) => ['javascript', 'typescript', 'react', 'vue', 'angular'].includes(tag))) {
+    if (
+      lowerTags.some(
+        (t) => t.includes('javascript') || t.includes('typescript') || t.includes('react') || t.includes('vue')
+      )
+    ) {
       return 'frontend'
     }
-    if (lowerTags.some((tag) => ['python', 'java', 'c#', 'php', 'node.js'].includes(tag))) {
+    if (
+      lowerTags.some((t) => t.includes('python') || t.includes('java') || t.includes('c#') || t.includes('node.js'))
+    ) {
       return 'backend'
     }
-    if (lowerTags.some((tag) => ['android', 'ios', 'flutter', 'react-native'].includes(tag))) {
+    if (
+      lowerTags.some(
+        (t) => t.includes('android') || t.includes('ios') || t.includes('flutter') || t.includes('react-native')
+      )
+    ) {
       return 'mobile'
     }
-    if (lowerTags.some((tag) => ['machine-learning', 'tensorflow', 'pytorch', 'ai'].includes(tag))) {
-      return 'artificial-intelligence'
-    }
-    if (lowerTags.some((tag) => ['database', 'sql', 'mongodb', 'redis'].includes(tag))) {
+    if (lowerTags.some((t) => t.includes('sql') || t.includes('mongodb') || t.includes('postgresql'))) {
       return 'database'
     }
-    if (lowerTags.some((tag) => ['docker', 'kubernetes', 'aws', 'azure'].includes(tag))) {
+    if (lowerTags.some((t) => t.includes('docker') || t.includes('kubernetes') || t.includes('aws'))) {
       return 'devops'
     }
-
+    if (lowerTags.some((t) => t.includes('security') || t.includes('authentication'))) {
+      return 'security'
+    }
     return 'programming'
   }
 }

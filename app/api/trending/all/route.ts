@@ -6,31 +6,18 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const sortBy = searchParams.get('sort') || 'random'
-    const sortOrder = searchParams.get('order') || 'desc'
-    const limit = Math.min(parseInt(searchParams.get('limit') || '100'), 500) // Cap at 500 items per request
-    const offset = parseInt(searchParams.get('offset') || '0')
+    console.log('📥 Fetching ALL trending topics from database...')
 
-    const topics = await dataFetcherService.fetchTrendingTopics(sortBy, sortOrder, limit, offset)
-
-    // Get total count for better pagination
-    const totalCount = await dataFetcherService.getTotalTopicsCount()
+    // Fetch ALL topics from the last 7 days
+    const topics = await dataFetcherService.fetchAllTrendingTopics()
 
     return NextResponse.json({
       success: true,
       topics,
       count: topics.length,
-      total_count: totalCount,
       timestamp: new Date().toISOString(),
       cached: false,
-      sort_by: sortBy,
-      sort_order: sortOrder,
-      pagination: {
-        limit,
-        offset,
-        has_more: offset + topics.length < totalCount,
-      },
+      message: `Fetched all ${topics.length} topics from database (last 7 days)`,
     })
   } catch (error) {
     console.error('Error in all trending API:', error)

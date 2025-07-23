@@ -1,5 +1,6 @@
 import { supabase, type TrendingTopic, type DatabaseStats } from '../supabase'
 import { cacheManager, CACHE_KEYS } from '../cache'
+import { Platform, Topic } from '../constants/enums'
 
 const DATABASE_RETENTION_DAYS = 7
 const MAX_TOPICS_PER_PLATFORM = 200
@@ -11,6 +12,17 @@ const CLEANUP_CONFIG = {
   BATCH_SIZE: 1000, // Delete in batches to avoid timeouts
   CLEANUP_INTERVAL_HOURS: 24, // Run cleanup daily
 } as const
+
+// Initialize empty stats records
+const emptyPlatformStats: Record<Platform, number> = Object.values(Platform).reduce(
+  (acc, platform) => ({ ...acc, [platform]: 0 }),
+  {} as Record<Platform, number>
+)
+
+const emptyTopicStats: Record<Topic, number> = Object.values(Topic).reduce(
+  (acc, topic) => ({ ...acc, [topic]: 0 }),
+  {} as Record<Topic, number>
+)
 
 export class DataFetcherService {
   private services: Record<string, any> = {}
@@ -26,23 +38,62 @@ export class DataFetcherService {
       // Fetch data from each service
       for (const [serviceName, service] of Object.entries(this.services)) {
         try {
-          console.log(`📡 Fetching from ${serviceName}...`)
           const topics = await service.fetchTrendingTopics()
-          const data = topics.slice(0, 50).map((topic: any) => ({
-            platform: topic.platform,
-            title: topic.title,
-            description: topic.description,
-            url: topic.url,
-            score: Math.min(topic.score, 2147483647), // Max 32-bit integer
-            engagement: Math.min(topic.engagement, 2147483647), // Max 32-bit integer
-            category: topic.category,
-            topic: topic.topic,
-            tags: topic.tags,
-            author: topic.author,
-            timestamp: topic.timestamp,
-          }))
+          const data = topics
+            .slice(0, 50)
+            .map((topic: any) => {
+              // Ensure Product Hunt topics have a minimum score
+              let score = topic.score
+              if (topic.platform === Platform.ProductHunt && (!score || score < 50)) {
+                score = 50 // Minimum base score for Product Hunt topics
+              }
+
+              // Ensure platform value matches enum - try exact match first
+              let platformValue = Object.values(Platform).find((p) => p === topic.platform)
+
+              if (!platformValue) {
+                // Try normalized matching as fallback
+                platformValue = Object.values(Platform).find(
+                  (p) => p.toLowerCase().replace(/\s+/g, '') === topic.platform.toLowerCase().replace(/\s+/g, '')
+                )
+              }
+
+              // If no match found, skip this topic
+              if (!platformValue) {
+                return null
+              }
+
+              // Ensure topic value matches enum - try exact match first
+              let topicValue = Object.values(Topic).find((t) => t === topic.topic)
+
+              if (!topicValue) {
+                // Try normalized matching as fallback
+                topicValue = Object.values(Topic).find(
+                  (t) => t.toLowerCase().replace(/[\s_]+/g, '-') === topic.topic.toLowerCase().replace(/[\s_]+/g, '-')
+                )
+              }
+
+              // Default to General if no match
+              if (!topicValue) {
+                topicValue = Topic.General
+              }
+
+              return {
+                platform: platformValue,
+                title: topic.title,
+                description: topic.description,
+                url: topic.url,
+                score: Math.min(Math.round(score), 2147483647),
+                engagement: Math.min(topic.engagement, 2147483647), // Keep original precision for percentages
+                category: topic.category,
+                topic: topicValue,
+                tags: topic.tags,
+                author: topic.author,
+                timestamp: topic.timestamp,
+              }
+            })
+            .filter(Boolean) // Remove null entries from skipped topics
           freshData.push(...data)
-          console.log(`✅ Fetched ${data.length} topics from ${serviceName}`)
         } catch (error) {
           console.error(`❌ ${serviceName} API failed:`, error)
         }
@@ -50,8 +101,6 @@ export class DataFetcherService {
 
       // Update database with fresh data
       if (freshData.length > 0) {
-        console.log(`\n💾 Writing ${freshData.length} topics to database...`)
-
         // Remove old data (older than DATABASE_RETENTION_DAYS days)
         const weekAgo = new Date()
         weekAgo.setDate(weekAgo.getDate() - DATABASE_RETENTION_DAYS)
@@ -77,8 +126,6 @@ export class DataFetcherService {
           batches.push(freshData.slice(i, i + batchSize))
         }
 
-        console.log(`📦 Processing ${batches.length} batches...`)
-
         for (let i = 0; i < batches.length; i++) {
           const batch = batches[i]
           try {
@@ -87,7 +134,6 @@ export class DataFetcherService {
 
             // If there's a duplicate key error, insert records one by one
             if (insertError?.code === '23505') {
-              console.log(`⚠️ Batch ${i + 1} has duplicates, inserting individually...`)
               for (const topic of batch) {
                 try {
                   // Delete any existing record with the same platform and title
@@ -100,13 +146,11 @@ export class DataFetcherService {
                   // Insert the new record
                   await supabase.from('trending_topics').insert(topic)
                 } catch (error) {
-                  console.error(`Failed to insert topic: ${topic.title}`, error)
+                  // Silent fail for individual topic insertions
                 }
               }
             } else if (insertError) {
               console.error(`Error inserting batch ${i + 1}:`, insertError)
-            } else {
-              console.log(`✅ Batch ${i + 1} inserted successfully`)
             }
           } catch (error) {
             console.error(`Error processing batch ${i + 1}:`, error)
@@ -115,7 +159,6 @@ export class DataFetcherService {
 
         // Clear cache to force fresh data on next request
         cacheManager.clearCache()
-        console.log('\n✅ Database update completed')
       }
     } catch (error) {
       console.error('Background update failed:', error)
@@ -126,7 +169,7 @@ export class DataFetcherService {
     try {
       // Check cache first
       const cachedData = cacheManager.getCachedData<{ topics: TrendingTopic[]; timestamp: string }>(
-        CACHE_KEYS.trending_topics
+        CACHE_KEYS.all_trending_topics
       )
       if (cachedData) {
         // Apply sorting to cached data
@@ -180,21 +223,58 @@ export class DataFetcherService {
       }
 
       // Convert to the expected format
-      const topics: TrendingTopic[] = (results || []).map((row: any) => ({
-        id: row.id,
-        platform: row.platform,
-        title: row.title,
-        description: row.description || '',
-        url: row.url || '',
-        score: row.score || 0,
-        engagement: row.engagement || 0,
-        category: row.category || '',
-        tags: row.tags || [],
-        timestamp: row.timestamp || new Date().toISOString(),
-        topic: row.topic || 'general',
-        author: row.author || 'Unknown',
-        created_at: row.created_at,
-      }))
+      const topics: TrendingTopic[] = (results || []).map((row: any) => {
+        // Ensure platform value matches enum - try exact match first, then fallback to normalized match
+        let platformValue = Object.values(Platform).find((p) => p === row.platform)
+
+        if (!platformValue) {
+          // Try normalized matching as fallback
+          platformValue = Object.values(Platform).find(
+            (p) => p.toLowerCase().replace(/\s+/g, '') === (row.platform || '').toLowerCase().replace(/\s+/g, '')
+          )
+        }
+
+        // If still no match, keep the original value but log it
+        if (!platformValue) {
+          console.warn(`Unknown platform in database: "${row.platform}" - keeping original value`)
+          platformValue = row.platform as Platform
+        }
+
+        // Ensure topic value matches enum
+        let topicValue = Object.values(Topic).find((t) => t === row.topic)
+
+        if (!topicValue) {
+          // Try normalized matching as fallback
+          topicValue = Object.values(Topic).find(
+            (t) =>
+              t.toLowerCase().replace(/[\s_]+/g, '-') === (row.topic || 'general').toLowerCase().replace(/[\s_]+/g, '-')
+          )
+        }
+
+        // If still no match, default to General
+        if (!topicValue) {
+          console.warn(`Unknown topic in database: "${row.topic}" - defaulting to General`)
+          topicValue = Topic.General
+        }
+
+        // Convert data format
+
+        return {
+          id: row.id,
+          platform: platformValue,
+          title: row.title,
+          description: row.description || '',
+          url: row.url || '',
+          score: row.score || 0,
+          engagement: row.engagement || 0,
+          category: row.category || '',
+          tags: row.tags || [],
+          timestamp: row.timestamp || new Date().toISOString(),
+          topic: topicValue,
+          author: row.author || 'Unknown',
+          created_at: row.created_at,
+        }
+      })
 
       // Shuffle if random order requested
       if (sortBy === 'random') {
@@ -210,12 +290,97 @@ export class DataFetcherService {
           topics: topics.slice(0, MAX_TOTAL_TOPICS),
           timestamp: new Date().toISOString(),
         }
-        cacheManager.setCachedData(CACHE_KEYS.trending_topics, cacheData)
+        cacheManager.setCachedData(CACHE_KEYS.all_trending_topics, cacheData)
       }
 
       return topics
     } catch (error) {
       console.error('Error fetching trending topics:', error)
+      return []
+    }
+  }
+
+  /**
+   * Fetch ALL trending topics from the last 7 days
+   * Used by the client to cache all available data
+   */
+  async fetchAllTrendingTopics(): Promise<TrendingTopic[]> {
+    try {
+      // Get all topics from the last 7 days
+      const weekAgo = new Date()
+      weekAgo.setDate(weekAgo.getDate() - DATABASE_RETENTION_DAYS)
+
+      const { data: results, error } = await supabase
+        .from('trending_topics')
+        .select('*')
+        .gte('timestamp', weekAgo.toISOString())
+        .order('timestamp', { ascending: false })
+
+      if (error) {
+        // Check if it's a table doesn't exist error
+        if (error.code === '42P01') {
+          console.warn('Database table does not exist yet. Please run the Supabase setup script.')
+          return []
+        }
+        console.error('Error fetching all topics from Supabase:', error)
+        return []
+      }
+
+      // Convert to the expected format
+      const topics: TrendingTopic[] = (results || []).map((row: any) => {
+        // Ensure platform value matches enum - try exact match first
+        let platformValue = Object.values(Platform).find((p) => p === row.platform)
+
+        if (!platformValue) {
+          // Try normalized matching as fallback
+          platformValue = Object.values(Platform).find(
+            (p) => p.toLowerCase().replace(/\s+/g, '') === (row.platform || '').toLowerCase().replace(/\s+/g, '')
+          )
+        }
+
+        // If still no match, keep the original value but log it
+        if (!platformValue) {
+          console.warn(`Unknown platform in database: "${row.platform}" - keeping original value`)
+          platformValue = row.platform as Platform
+        }
+
+        // Ensure topic value matches enum
+        let topicValue = Object.values(Topic).find((t) => t === row.topic)
+
+        if (!topicValue) {
+          // Try normalized matching as fallback
+          topicValue = Object.values(Topic).find(
+            (t) =>
+              t.toLowerCase().replace(/[\s_]+/g, '-') === (row.topic || 'general').toLowerCase().replace(/[\s_]+/g, '-')
+          )
+        }
+
+        // If still no match, default to General
+        if (!topicValue) {
+          console.warn(`Unknown topic in database: "${row.topic}" - defaulting to General`)
+          topicValue = Topic.General
+        }
+
+        return {
+          id: row.id,
+          platform: platformValue,
+          title: row.title,
+          description: row.description || '',
+          url: row.url || '',
+          score: row.score || 0,
+          engagement: row.engagement || 0,
+          category: row.category || '',
+          tags: row.tags || [],
+          timestamp: row.timestamp || new Date().toISOString(),
+          topic: topicValue,
+          author: row.author || 'Unknown',
+          created_at: row.created_at,
+        }
+      })
+
+      return topics
+    } catch (error) {
+      console.error('Error fetching all trending topics:', error)
       return []
     }
   }
@@ -233,14 +398,14 @@ export class DataFetcherService {
         return {
           total_topics_7d: 0,
           total_topics_all_time: 0,
-          platform_stats: {},
-          category_stats: {},
+          platform_stats: emptyPlatformStats,
+          category_stats: emptyTopicStats,
         }
       }
 
       // Convert to required format
-      const platformStatsMap: Record<string, number> = {}
-      platformStats?.forEach((item: { platform: string; count: number }) => {
+      const platformStatsMap = { ...emptyPlatformStats }
+      platformStats?.forEach((item: { platform: Platform; count: number }) => {
         platformStatsMap[item.platform] = item.count
       })
 
@@ -252,14 +417,14 @@ export class DataFetcherService {
         return {
           total_topics_7d: 0,
           total_topics_all_time: 0,
-          platform_stats: {},
-          category_stats: {},
+          platform_stats: emptyPlatformStats,
+          category_stats: emptyTopicStats,
         }
       }
 
       // Convert to required format
-      const topicStatsMap: Record<string, number> = {}
-      topicStats?.forEach((item: { topic: string; count: number }) => {
+      const topicStatsMap = { ...emptyTopicStats }
+      topicStats?.forEach((item: { topic: Topic; count: number }) => {
         if (item.topic) {
           topicStatsMap[item.topic] = item.count
         }
@@ -274,7 +439,7 @@ export class DataFetcherService {
         .select('*', { count: 'exact', head: true })
 
       if (totalError) {
-        console.error('Error fetching total topics:', totalError)
+        console.error('Error fetching total topics count:', totalError)
         return {
           total_topics_7d: totalTopics7d,
           total_topics_all_time: totalTopics7d,
@@ -285,17 +450,17 @@ export class DataFetcherService {
 
       return {
         total_topics_7d: totalTopics7d,
-        total_topics_all_time: totalTopicsAllTime || 0,
+        total_topics_all_time: totalTopicsAllTime || totalTopics7d,
         platform_stats: platformStatsMap,
         category_stats: topicStatsMap,
       }
     } catch (error) {
-      console.error('Error fetching stats:', error)
+      console.error('Error getting stats:', error)
       return {
         total_topics_7d: 0,
         total_topics_all_time: 0,
-        platform_stats: {},
-        category_stats: {},
+        platform_stats: emptyPlatformStats,
+        category_stats: emptyTopicStats,
       }
     }
   }
@@ -328,8 +493,6 @@ export class DataFetcherService {
       const cutoffDate = new Date()
       cutoffDate.setDate(cutoffDate.getDate() - CLEANUP_CONFIG.RETENTION_DAYS)
 
-      console.log(`🧹 Starting database cleanup - removing data older than ${cutoffDate.toISOString()}`)
-
       // First, count how many records will be deleted
       const { count: totalToDelete, error: countError } = await supabase
         .from('trending_topics')
@@ -342,11 +505,8 @@ export class DataFetcherService {
       }
 
       if (!totalToDelete || totalToDelete === 0) {
-        console.log('✅ No old data to clean up')
         return { deletedCount: 0 }
       }
-
-      console.log(`🗑️ Found ${totalToDelete} records to delete`)
 
       // Delete old data
       const { error: deleteError } = await supabase
@@ -359,7 +519,6 @@ export class DataFetcherService {
         return { deletedCount: 0, error: deleteError.message }
       }
 
-      console.log(`✅ Successfully deleted ${totalToDelete} old records`)
       return { deletedCount: totalToDelete }
     } catch (error) {
       console.error('Error during database cleanup:', error)

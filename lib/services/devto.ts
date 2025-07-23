@@ -1,25 +1,8 @@
-interface DevToArticle {
-  id: number
-  title: string
-  description: string
-  url: string
-  published_at: string
-  reading_time_minutes: number
-  tag_list: string[]
-  user: {
-    name: string
-    username: string
-    profile_image: string
-  }
-  public_reactions_count: number
-  comments_count: number
-  positive_reactions_count: number
-  cover_image: string
-  canonical_url: string
-}
+import { BaseService } from './base'
+import { Platform, Topic } from '../constants/enums'
 
 interface DevToTopic {
-  platform: string
+  platform: Platform
   title: string
   description: string
   url: string
@@ -28,11 +11,11 @@ interface DevToTopic {
   timestamp: Date
   category: string
   tags: string[]
-  topic: string
+  topic: Topic
   author: string
 }
 
-export class DevToService {
+export class DevToService extends BaseService {
   private baseUrl = 'https://dev.to/api'
 
   async fetchTrendingTopics(limit = 50): Promise<DevToTopic[]> {
@@ -40,12 +23,12 @@ export class DevToService {
       // Fetch top articles
       const topArticlesUrl = `${this.baseUrl}/articles?top=1&per_page=${limit}`
       const topResponse = await fetch(topArticlesUrl)
-      const topArticles: DevToArticle[] = await topResponse.json()
+      const topArticles: any[] = await topResponse.json()
 
       // Fetch latest articles
       const latestArticlesUrl = `${this.baseUrl}/articles?per_page=${limit}`
       const latestResponse = await fetch(latestArticlesUrl)
-      const latestArticles: DevToArticle[] = await latestResponse.json()
+      const latestArticles: any[] = await latestResponse.json()
 
       // Combine and deduplicate
       const allArticles = [...topArticles, ...latestArticles]
@@ -58,7 +41,7 @@ export class DevToService {
     }
   }
 
-  private deduplicateArticles(articles: DevToArticle[]): DevToArticle[] {
+  private deduplicateArticles(articles: any[]): any[] {
     const seen = new Set<number>()
     return articles.filter((article) => {
       if (seen.has(article.id)) {
@@ -69,9 +52,9 @@ export class DevToService {
     })
   }
 
-  private transformArticles(articles: DevToArticle[]): DevToTopic[] {
+  private transformArticles(articles: any[]): DevToTopic[] {
     return articles.map((article) => ({
-      platform: 'Dev.to',
+      platform: Platform.DevTo,
       title: article.title,
       description: article.description || `Reading time: ${article.reading_time_minutes} minutes`,
       url: article.canonical_url || article.url,
@@ -80,12 +63,12 @@ export class DevToService {
       timestamp: new Date(article.published_at),
       category: this.detectCategory(article.title, article.tag_list),
       tags: article.tag_list,
-      topic: 'programming',
+      topic: Topic.Programming,
       author: article.user.name || article.user.username,
     }))
   }
 
-  private calculateScore(article: DevToArticle): number {
+  private calculateScore(article: any): number {
     const reactions = article.public_reactions_count || 0
     const comments = article.comments_count || 0
     const readingTime = article.reading_time_minutes || 1
@@ -97,75 +80,26 @@ export class DevToService {
   private getDemoData(limit: number): DevToTopic[] {
     const demoArticles = [
       {
-        title: 'Building a Modern Web App with Next.js and TypeScript',
-        description: 'A comprehensive guide to creating scalable web applications with modern technologies',
-        url: 'https://dev.to/example/nextjs-typescript-guide',
-        published_at: new Date().toISOString(),
-        reading_time_minutes: 8,
-        tag_list: ['nextjs', 'typescript', 'react', 'webdev'],
-        user: { name: 'John Developer', username: 'johndev' },
-        public_reactions_count: 45,
-        comments_count: 12,
-      },
-      {
-        title: 'The Future of AI in Software Development',
-        description: 'Exploring how artificial intelligence is transforming the way we write and maintain code',
-        url: 'https://dev.to/example/ai-software-development',
-        published_at: new Date().toISOString(),
-        reading_time_minutes: 12,
-        tag_list: ['ai', 'machine-learning', 'programming', 'future'],
-        user: { name: 'AI Enthusiast', username: 'aiexpert' },
-        public_reactions_count: 89,
-        comments_count: 23,
-      },
-      {
-        title: 'Mastering CSS Grid: A Complete Guide',
-        description:
-          'Learn how to create complex layouts with CSS Grid and take your web design skills to the next level',
-        url: 'https://dev.to/example/css-grid-guide',
-        published_at: new Date().toISOString(),
-        reading_time_minutes: 15,
-        tag_list: ['css', 'grid', 'webdesign', 'frontend'],
-        user: { name: 'CSS Master', username: 'cssguru' },
-        public_reactions_count: 67,
-        comments_count: 18,
-      },
-      {
-        title: 'Getting Started with Rust: From Zero to Hero',
-        description: 'A beginner-friendly introduction to Rust programming language and its ecosystem',
-        url: 'https://dev.to/example/rust-beginners',
-        published_at: new Date().toISOString(),
-        reading_time_minutes: 20,
-        tag_list: ['rust', 'programming', 'beginners', 'systems'],
-        user: { name: 'Rust Advocate', username: 'rustlover' },
-        public_reactions_count: 123,
-        comments_count: 34,
-      },
-      {
-        title: 'Microservices Architecture: Best Practices and Patterns',
-        description: 'Learn how to design and implement scalable microservices architectures',
-        url: 'https://dev.to/example/microservices-patterns',
-        published_at: new Date().toISOString(),
-        reading_time_minutes: 18,
-        tag_list: ['microservices', 'architecture', 'backend', 'scalability'],
-        user: { name: 'Architecture Expert', username: 'architect' },
-        public_reactions_count: 156,
-        comments_count: 28,
+        title: 'Top 10 VS Code extensions for web developers',
+        description: 'Boost your productivity with these amazing extensions',
+        reactions: 150,
+        comments: 25,
+        tags: ['vscode', 'webdev', 'productivity'],
+        author: 'Jane Doe',
       },
     ]
-
     return demoArticles.slice(0, limit).map((article) => ({
-      platform: 'Dev.to',
+      platform: Platform.DevTo,
       title: article.title,
       description: article.description,
-      url: article.url,
-      score: this.calculateScore(article as any),
-      engagement: article.public_reactions_count + article.comments_count,
-      timestamp: new Date(article.published_at),
-      category: this.detectCategory(article.title, article.tag_list),
-      tags: article.tag_list,
-      topic: 'programming',
-      author: article.user.name,
+      url: `https://dev.to/janedoe/${article.title.toLowerCase().replace(/\s+/g, '-')}`,
+      score: article.reactions + article.comments * 2,
+      engagement: article.reactions + article.comments,
+      timestamp: new Date(),
+      category: this.detectCategory(article.title, article.tags),
+      tags: article.tags,
+      topic: Topic.Programming,
+      author: article.author,
     }))
   }
 

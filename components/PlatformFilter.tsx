@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
-import { PlatformFilterProps } from '../types'
+import { Platform, Topic } from '@/lib/constants/enums'
+import { PlatformFilterProps } from '@/types'
 import PlatformIcon from './PlatformIcon'
-import { PLATFORMS, getPlatformColor } from '../lib/constants/index'
+import { PLATFORMS } from '@/lib/constants/platforms'
 
 export default function PlatformFilter({
   selectedPlatforms,
@@ -9,24 +10,60 @@ export default function PlatformFilter({
   topics,
   stats,
   loading = false,
+  selectedTopics = [], // Add selectedTopics prop
 }: PlatformFilterProps) {
   const [isExpanded, setIsExpanded] = useState(false)
-  const [hasOverflow, setHasOverflow] = useState(true) // Start with true to prevent layout shift
+  // Start with `false` so the expand button only shows once we've checked
+  // whether the grid actually overflows the collapsed height.
+  const [hasOverflow, setHasOverflow] = useState(false)
   const gridRef = useRef<HTMLDivElement>(null)
 
-  // Use centralized platform data
-  const platforms = PLATFORMS.map((platform) => ({
-    key: platform.key,
-    label: platform.label,
-  }))
+  // Calculate dynamic platform counts based on current topic selection
+  const getDynamicPlatformCounts = () => {
+    if (!topics || topics.length === 0) {
+      // Fallback to static stats if no topics data
+      return PLATFORMS.reduce((acc, platform) => {
+        acc[platform.key] = stats?.platform_stats?.[platform.key] || 0
+        return acc
+      }, {} as Record<Platform, number>)
+    }
 
-  const isAllSelected = selectedPlatforms.length === platforms.length
-  const isAnySelected = selectedPlatforms.length > 0
+    // Filter topics based on selected topics (if any)
+    let filteredTopics = topics
+    if (selectedTopics && selectedTopics.length > 0) {
+      filteredTopics = topics.filter((topic) => selectedTopics.includes(topic.topic))
+    }
+
+    // Count topics per platform
+    return PLATFORMS.reduce((acc, platform) => {
+      acc[platform.key] = filteredTopics.filter((topic) => topic.platform === platform.key).length
+      return acc
+    }, {} as Record<Platform, number>)
+  }
+
+  const platformCounts = getDynamicPlatformCounts()
+
+  const handlePlatformToggle = (platformKey: Platform) => {
+    if (selectedPlatforms.includes(platformKey)) {
+      onPlatformChange(selectedPlatforms.filter((p) => p !== platformKey))
+    } else {
+      onPlatformChange([...selectedPlatforms, platformKey])
+    }
+  }
+
+  const handleAllToggle = () => {
+    if (selectedPlatforms.length === PLATFORMS.length) {
+      onPlatformChange([])
+    } else {
+      // Pass the enum values (platform.key) not the objects
+      onPlatformChange(PLATFORMS.map((p) => p.key))
+    }
+  }
 
   useEffect(() => {
     const checkOverflow = () => {
       if (gridRef.current) {
-        const hasVerticalOverflow = gridRef.current.scrollHeight > 220 // 220px is our default grid height
+        const hasVerticalOverflow = gridRef.current.scrollHeight > 220
         setHasOverflow(hasVerticalOverflow)
         if (!hasVerticalOverflow && isExpanded) {
           setIsExpanded(false)
@@ -37,27 +74,7 @@ export default function PlatformFilter({
     checkOverflow()
     window.addEventListener('resize', checkOverflow)
     return () => window.removeEventListener('resize', checkOverflow)
-  }, [platforms, isExpanded])
-
-  const handlePlatformToggle = (platform: string) => {
-    if (selectedPlatforms.includes(platform)) {
-      // Remove platform if already selected
-      onPlatformChange(selectedPlatforms.filter((p) => p !== platform))
-    } else {
-      // Add platform if not selected
-      onPlatformChange([...selectedPlatforms, platform])
-    }
-  }
-
-  const handleAllToggle = () => {
-    if (isAllSelected) {
-      // Deactivate all
-      onPlatformChange([])
-    } else {
-      // Activate all
-      onPlatformChange(platforms.map((p) => p.key))
-    }
-  }
+  }, [isExpanded, selectedTopics, topics])
 
   if (loading) {
     return (
@@ -100,12 +117,12 @@ export default function PlatformFilter({
         <button
           onClick={handleAllToggle}
           className={`px-3 rounded-md text-sm font-medium w-[125px] h-[30px] transition-all duration-300 ease-in-out ${
-            isAllSelected
+            selectedPlatforms.length === PLATFORMS.length
               ? 'bg-primary-50 border border-primary-600 text-primary-600'
               : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-400 hover:bg-gray-50'
           }`}
         >
-          {isAllSelected ? 'Deactivate All' : 'Activate All'}
+          {selectedPlatforms.length === PLATFORMS.length ? 'Deactivate All' : 'Activate All'}
         </button>
       </div>
 
@@ -118,10 +135,9 @@ export default function PlatformFilter({
             transition: 'height 300ms ease-in-out',
           }}
         >
-          {platforms.map((platform) => {
+          {PLATFORMS.map((platform) => {
             const isSelected = selectedPlatforms.includes(platform.key)
-            // Use stats from database instead of counting loaded topics
-            const count = stats?.platform_stats?.[platform.key] || 0
+            const count = platformCounts[platform.key] || 0
 
             return (
               <button
@@ -152,10 +168,9 @@ export default function PlatformFilter({
         </div>
       </div>
 
-      {/* Status indicator and expand button */}
       <div className="mt-3 flex items-center justify-between h-6 flex-shrink-0">
         <div className="text-xs text-gray-600">
-          {isAnySelected ? (
+          {selectedPlatforms.length > 0 ? (
             <span>
               {selectedPlatforms.length} platform{selectedPlatforms.length !== 1 ? 's' : ''} selected
             </span>

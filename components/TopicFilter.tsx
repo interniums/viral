@@ -1,13 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { TopicFilterProps } from '../types'
-import { TOPICS, getTopicIcons } from '../lib/constants/index'
-
-interface Topic {
-  topic: string
-  count: number
-}
+import { Topic, TopicCategory } from '@/lib/constants/enums'
+import { TopicFilterProps } from '@/types'
+import { TOPICS, getTopicIcons } from '@/lib/constants/topics'
 
 // Use centralized topic icons
 const topicIcons = getTopicIcons()
@@ -21,19 +17,30 @@ export default function TopicFilter({
   loading = false,
 }: TopicFilterProps) {
   const [isExpanded, setIsExpanded] = useState(false)
-  const [hasOverflow, setHasOverflow] = useState(true) // Start with true to prevent layout shift
+  // Start with `false` so the expand button only shows once we've confirmed overflow
+  const [hasOverflow, setHasOverflow] = useState(false)
   const gridRef = useRef<HTMLDivElement>(null)
 
-  // Calculate topic counts based on database stats
+  // Calculate dynamic topic counts based on current platform selection
   const getTopicCounts = () => {
-    if (!stats) {
-      return TOPICS.map((t) => ({ topic: t.key, count: 0 }))
+    if (!allTopics || allTopics.length === 0) {
+      // Fallback to static stats if no topics data
+      return TOPICS.map((topicConfig) => ({
+        topic: topicConfig.key,
+        count: stats?.category_stats[topicConfig.key] || 0,
+      }))
     }
 
-    // Return counts for all available topics from TOPICS constant
-    return TOPICS.map((topic) => ({
-      topic: topic.key,
-      count: stats.category_stats[topic.key] || 0,
+    // Filter topics based on selected platforms (if any)
+    let filteredTopics = allTopics
+    if (selectedPlatforms && selectedPlatforms.length > 0) {
+      filteredTopics = allTopics.filter((topic) => selectedPlatforms.includes(topic.platform))
+    }
+
+    // Count topics per category
+    return TOPICS.map((topicConfig) => ({
+      topic: topicConfig.key,
+      count: filteredTopics.filter((topic) => topic.topic === topicConfig.key).length,
     }))
   }
 
@@ -55,7 +62,7 @@ export default function TopicFilter({
     checkOverflow()
     window.addEventListener('resize', checkOverflow)
     return () => window.removeEventListener('resize', checkOverflow)
-  }, [availableTopics, isExpanded])
+  }, [availableTopics, isExpanded, selectedPlatforms])
 
   const handleExpand = () => {
     setIsExpanded(!isExpanded)
@@ -67,13 +74,13 @@ export default function TopicFilter({
     }
   }
 
-  const handleTopicToggle = (topic: string) => {
-    if (selectedTopics.includes(topic)) {
+  const handleTopicToggle = (topicKey: Topic) => {
+    if (selectedTopics.includes(topicKey)) {
       // Remove topic if already selected
-      onTopicChange(selectedTopics.filter((t) => t !== topic))
+      onTopicChange(selectedTopics.filter((t) => t !== topicKey))
     } else {
       // Add topic if not selected
-      onTopicChange([...selectedTopics, topic])
+      onTopicChange([...selectedTopics, topicKey])
     }
   }
 
@@ -82,13 +89,10 @@ export default function TopicFilter({
       // Deactivate all
       onTopicChange([])
     } else {
-      // Activate all
+      // Activate all - pass the enum values directly
       onTopicChange(availableTopics.map((t) => t.topic))
     }
   }
-
-  // Remove the useEffect that tries to fetch from non-existent API
-  // The component now works with the allTopics prop passed from parent
 
   if (loading) {
     return (
@@ -129,10 +133,7 @@ export default function TopicFilter({
   return (
     <div
       className="rounded-lg shadow-sm border border-gray-200 px-3 py-4 bg-white flex flex-col relative"
-      style={{
-        height: isExpanded ? '520px' : '310px',
-        transition: 'height 300ms cubic-bezier(0.4, 0, 0.2, 1)',
-      }}
+      style={{ height: isExpanded ? 'auto' : '310px' }}
     >
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-base font-semibold text-gray-900">Topics</h3>
@@ -153,18 +154,22 @@ export default function TopicFilter({
           ref={gridRef}
           className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2 content-start"
           style={{
-            maxHeight: isExpanded ? '420px' : '220px',
+            // Use a large height value instead of 'none' to allow smooth animation
+            maxHeight: isExpanded ? '2000px' : '220px',
             transition: 'max-height 300ms cubic-bezier(0.4, 0, 0.2, 1)',
-            overflow: 'hidden',
+            overflow: isExpanded ? 'visible' : 'hidden',
           }}
         >
-          {availableTopics.map((topic) => {
-            const isSelected = selectedTopics.includes(topic.topic)
+          {availableTopics.map((topicData) => {
+            const isSelected = selectedTopics.includes(topicData.topic)
+            // Find the topic configuration for the label
+            const topicConfig = TOPICS.find((t) => t.key === topicData.topic)
+            const topicLabel = topicConfig ? topicConfig.label : topicData.topic
 
             return (
               <button
-                key={topic.topic}
-                onClick={() => handleTopicToggle(topic.topic)}
+                key={topicData.topic}
+                onClick={() => handleTopicToggle(topicData.topic)}
                 className={`p-2 rounded-md transition-all duration-300 ease-in-out h-[60px] ${
                   isSelected
                     ? 'bg-primary-50 border border-primary-600 text-primary-600'
@@ -184,17 +189,17 @@ export default function TopicFilter({
                         justifyContent: 'center',
                       }}
                     >
-                      {topicIcons[topic.topic] || '📌'}
+                      {topicIcons[topicData.topic] || '📌'}
                     </span>
                     <span
                       className={`absolute -top-1 -right-1 text-xs px-1.5 py-0.5 rounded-full ${
                         isSelected ? 'bg-gray-200 text-gray-600' : 'bg-gray-100 text-gray-500'
                       }`}
                     >
-                      {topic.count}
+                      {topicData.count}
                     </span>
                   </div>
-                  <span className="text-xs font-medium truncate text-center w-full">{topic.topic}</span>
+                  <span className="text-xs font-medium truncate text-center w-full">{topicLabel}</span>
                 </div>
               </button>
             )

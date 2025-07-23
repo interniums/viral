@@ -1,3 +1,6 @@
+import { BaseService } from './base'
+import { Platform, Topic } from '../constants/enums'
+
 interface GuardianArticle {
   id: string
   type: string
@@ -22,7 +25,7 @@ interface GuardianArticle {
 }
 
 interface GuardianTopic {
-  platform: string
+  platform: Platform
   title: string
   description: string
   url: string
@@ -31,13 +34,18 @@ interface GuardianTopic {
   timestamp: string
   category: string
   tags: string[]
-  topic: string
+  topic: Topic
   author: string
 }
 
-export class GuardianService {
+export class GuardianService extends BaseService {
+  private apiKey: string
   private baseUrl = 'https://content.guardianapis.com'
-  private apiKey = process.env.GUARDIAN_API_KEY
+
+  constructor() {
+    super()
+    this.apiKey = process.env.GUARDIAN_API_KEY || ''
+  }
 
   async fetchTrendingTopics(limit = 50): Promise<GuardianTopic[]> {
     try {
@@ -110,9 +118,9 @@ export class GuardianService {
     })
   }
 
-  private transformArticles(articles: GuardianArticle[]): GuardianTopic[] {
+  private transformArticles(articles: any[]): GuardianTopic[] {
     return articles.map((article) => ({
-      platform: 'The Guardian',
+      platform: Platform.TheGuardian,
       title: article.webTitle,
       description: article.fields?.trailText || article.fields?.bodyText?.substring(0, 200) || 'Guardian article',
       url: article.webUrl,
@@ -121,7 +129,7 @@ export class GuardianService {
       timestamp: article.webPublicationDate,
       category: this.detectCategory(article),
       tags: this.extractTags(article),
-      topic: 'news',
+      topic: Topic.News,
       author: this.extractAuthor(article),
     }))
   }
@@ -268,7 +276,7 @@ export class GuardianService {
     ]
 
     return demoArticles.slice(0, limit).map((article, index) => ({
-      platform: 'The Guardian',
+      platform: Platform.TheGuardian,
       title: article.title,
       description: article.description,
       url: `https://www.theguardian.com/article/${index + 1}`,
@@ -277,7 +285,7 @@ export class GuardianService {
       timestamp: new Date().toISOString(),
       category: article.category,
       tags: article.tags,
-      topic: 'news',
+      topic: Topic.News,
       author: 'The Guardian',
     }))
   }

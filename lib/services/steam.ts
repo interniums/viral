@@ -1,3 +1,6 @@
+import { BaseService } from './base'
+import { Platform, Topic } from '../constants/enums'
+
 interface SteamGame {
   appid: number
   name: string
@@ -11,7 +14,7 @@ interface SteamGame {
 }
 
 interface SteamTopic {
-  platform: string
+  platform: Platform
   title: string
   description: string
   url: string
@@ -20,11 +23,11 @@ interface SteamTopic {
   timestamp: string
   category: string
   tags: string[]
-  topic: string
+  topic: Topic
   author: string
 }
 
-export class SteamService {
+export class SteamService extends BaseService {
   private baseUrl = 'https://api.steampowered.com'
 
   async fetchTrendingTopics(limit = 50): Promise<SteamTopic[]> {
@@ -112,9 +115,9 @@ export class SteamService {
     })
   }
 
-  private transformGames(games: SteamGame[]): SteamTopic[] {
+  private transformGames(games: any[]): SteamTopic[] {
     return games.map((game) => ({
-      platform: 'Steam',
+      platform: Platform.Steam,
       title: game.name,
       description: `Popular game on Steam with ${game.playtime_forever} total playtime hours`,
       url: `https://store.steampowered.com/app/${game.appid}`,
@@ -123,7 +126,7 @@ export class SteamService {
       timestamp: new Date().toISOString(),
       category: this.detectCategory(game.name),
       tags: this.extractTags(game.name),
-      topic: 'gaming',
+      topic: Topic.Gaming,
       author: 'Steam Community',
     }))
   }
@@ -262,7 +265,7 @@ export class SteamService {
     ]
 
     return demoGames.slice(0, limit).map((game, index) => ({
-      platform: 'Steam',
+      platform: Platform.Steam,
       title: game.name,
       description: `Popular game on Steam with ${game.playtime} total playtime hours`,
       url: `https://store.steampowered.com/app/${game.appid}`,
@@ -271,7 +274,7 @@ export class SteamService {
       timestamp: new Date().toISOString(),
       category: game.category,
       tags: game.tags,
-      topic: 'gaming',
+      topic: Topic.Gaming,
       author: 'Steam Community',
     }))
   }

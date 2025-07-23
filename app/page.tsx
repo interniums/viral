@@ -1,144 +1,97 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { TrendingUp, Globe, Zap } from 'lucide-react'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { FreeMode } from 'swiper/modules'
 import 'swiper/css'
 import 'swiper/css/free-mode'
-import TrendingCard from '../components/TrendingCard'
+import TrendingCard, { TrendingCardSkeleton } from '../components/TrendingCard'
 import StatsCard from '../components/StatsCard'
 import PlatformFilter from '../components/PlatformFilter'
 import TopicFilter from '../components/TopicFilter'
-import SortFilter from '../components/SortFilter'
+import SortFilter, { SortFilterSkeleton } from '../components/SortFilter'
 import PlatformIcon from '../components/PlatformIcon'
-import { Topic, Stats } from '../types'
-import { APP_CONFIG, API_ENDPOINTS, STORAGE_KEYS } from '../lib/constants'
-import { PLATFORMS, TOPICS, getPlatformColor } from '../lib/constants/index'
+import { TrendingTopic, Stats } from '../types'
+import { Platform, Topic } from '../lib/constants/enums'
+import { APP_CONFIG, API_ENDPOINTS, PLATFORMS } from '../lib/constants/index'
 
 // Loading skeleton components
 const StatsSkeleton = () => (
-  <div
-    className="card p-6 border-2 min-w-[240px] flex-shrink-0 bg-gray-50 border-gray-200 mr-4"
-    style={{ minHeight: `${APP_CONFIG.SKELETON_HEIGHT}px` }}
-  >
-    <div className="flex items-start justify-between gap-4 h-full">
+  <div className="card p-6 border-2 min-w-[240px] flex-shrink-0 bg-gray-50 border-gray-200 mr-4">
+    <div className="flex items-start justify-between gap-4">
       <div className="flex-1 min-w-0">
         <div className="h-4 rounded w-20 mb-2 animate-pulse bg-gray-200"></div>
-        <div className="h-8 rounded w-16 animate-pulse bg-gray-200"></div>
+        <div className="h-8 rounded w-16 mt-1 animate-pulse bg-gray-200"></div>
       </div>
-      <div className="w-6 h-6 rounded animate-pulse bg-gray-200 flex-shrink-0" style={{ minWidth: '32px' }}></div>
+      <div
+        className="text-2xl opacity-80 flex-shrink-0 flex items-center justify-center animate-pulse bg-gray-200 rounded"
+        style={{ minWidth: '32px', width: '24px', height: '24px' }}
+      ></div>
     </div>
   </div>
 )
 
-const TrendingCardSkeleton = ({
-  index,
-  className = '',
-  style,
-}: {
-  index: number
-  className?: string
-  style?: React.CSSProperties
-}) => (
-  <div className={`trending-card skeleton-card ${className}`} style={style}>
-    <div className="flex items-start justify-between mb-4">
-      <div className="flex items-center space-x-2">
-        <div className="w-8 h-8 rounded animate-pulse bg-gray-200"></div>
-        <div className="w-16 h-4 rounded animate-pulse bg-gray-200"></div>
-      </div>
-      <div className="w-20 h-6 rounded animate-pulse bg-gray-200"></div>
-    </div>
-    <div className="h-6 rounded animate-pulse bg-gray-200 mb-2"></div>
-    <div className="h-4 rounded animate-pulse bg-gray-200 mb-4"></div>
-    <div className="w-24 h-4 rounded animate-pulse bg-gray-200"></div>
-  </div>
-)
+// Helper function to map platform colors to StatsCard colors
+const getStatsCardColor = (color: string): 'blue' | 'green' | 'red' | 'yellow' | 'purple' | 'orange' | 'gray' => {
+  switch (color) {
+    case 'blue':
+      return 'blue'
+    case 'green':
+      return 'green'
+    case 'red':
+      return 'red'
+    case 'yellow':
+      return 'yellow'
+    case 'purple':
+      return 'purple'
+    case 'orange':
+      return 'orange'
+    default:
+      return 'gray'
+  }
+}
 
 export default function Home() {
-  // State management
-  const [topics, setTopics] = useState<Topic[]>([])
+  const [allTopics, setAllTopics] = useState<TrendingTopic[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
-  const [topicsLoading, setTopicsLoading] = useState(true)
-  const [sortingLoading, setSortingLoading] = useState(false)
-  const [filtersLoading, setFiltersLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]) // Start with empty array to show all
-  const [selectedTopics, setSelectedTopics] = useState<string[]>([]) // Start with empty array to show all
-  const [selectedSort, setSelectedSort] = useState<string>('random')
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([])
+  const [selectedTopics, setSelectedTopics] = useState<Topic[]>([])
+  const [selectedSort, setSelectedSort] = useState<string>('timestamp')
   const [selectedOrder, setSelectedOrder] = useState<string>('desc')
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
   const [lastDbUpdate, setLastDbUpdate] = useState<string | null>(null)
-  const [displayCount, setDisplayCount] = useState<number>(APP_CONFIG.INITIAL_DISPLAY_COUNT)
-  const [showLoadMore, setShowLoadMore] = useState(true)
-  const [hasMoreData, setHasMoreData] = useState(true)
-  const [currentOffset, setCurrentOffset] = useState(0)
+  const [displayCount, setDisplayCount] = useState<number>(APP_CONFIG.INITIAL_DISPLAY_COUNT) // How many to show
   const [showScrollToTop, setShowScrollToTop] = useState(false)
 
-  // Refs to track current sort values
-  const sortRef = useRef(selectedSort)
-  const orderRef = useRef(selectedOrder)
+  // Fetch ALL data from database (called once on load)
+  const fetchAllTopics = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
 
-  // API fetch functions
-  const fetchTopics = useCallback(
-    async (isSorting = false, loadMore = false) => {
-      try {
-        if (isSorting) {
-          setSortingLoading(true)
-        } else if (loadMore) {
-          setLoadingMore(true)
-        } else {
-          setTopicsLoading(true)
-        }
-        setError(null)
+      const response = await fetch(API_ENDPOINTS.TRENDING_ALL, {
+        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+      })
 
-        // Use ref values to get current sort and order
-        const currentSort = sortRef.current
-        const currentOrder = orderRef.current
+      const data = await response.json()
 
-        // Calculate offset for pagination
-        const offset = loadMore ? currentOffset : 0
-        const limit = APP_CONFIG.LOAD_MORE_INCREMENT
-
-        const response = await fetch(
-          `${API_ENDPOINTS.TRENDING_ALL}?sort=${currentSort}&order=${currentOrder}&limit=${limit}&offset=${offset}`
-        )
-        const data = await response.json()
-
-        if (data.success) {
-          if (loadMore) {
-            // Append new topics to existing ones
-            setTopics((prevTopics) => [...prevTopics, ...data.topics])
-            setCurrentOffset((prev) => prev + limit)
-          } else {
-            // Replace topics for new searches
-            setTopics(data.topics)
-            setCurrentOffset(limit)
-          }
-
-          // Check if more data is available
-          setHasMoreData(data.pagination?.has_more || false)
-          setLastUpdate(new Date())
-        } else {
-          setError(data.error || 'Failed to fetch trending topics')
-        }
-      } catch (error) {
-        setError('Network error while fetching trending topics')
-        console.error('Error fetching trending topics:', error)
-      } finally {
-        if (isSorting) {
-          setSortingLoading(false)
-        } else if (loadMore) {
-          setLoadingMore(false)
-        } else {
-          setTopicsLoading(false)
-        }
+      if (data.success) {
+        setAllTopics(data.topics)
+        setLastUpdate(new Date())
+      } else {
+        console.error('API returned error:', data.error)
+        setError(data.error || 'Failed to fetch trending topics')
       }
-    },
-    [currentOffset]
-  )
+    } catch (error) {
+      console.error('Network error while fetching topics:', error)
+      setError('Network error while fetching topics')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
   const fetchStats = useCallback(async () => {
     try {
@@ -170,179 +123,111 @@ export default function Home() {
     }
   }, [])
 
-  // Refs to track functions for intervals
-  const fetchTopicsRef = useRef(fetchTopics)
-  const fetchStatsRef = useRef(fetchStats)
-  const fetchLastUpdateRef = useRef(fetchLastUpdate)
+  // Filter and sort topics based on current selections
+  const processedTopics = useMemo(() => {
+    let filtered = allTopics
 
-  // Update refs when functions change
-  useEffect(() => {
-    fetchTopicsRef.current = fetchTopics
-    fetchStatsRef.current = fetchStats
-    fetchLastUpdateRef.current = fetchLastUpdate
-  }, [fetchTopics, fetchStats, fetchLastUpdate])
-
-  // Update sort refs when values change
-  useEffect(() => {
-    sortRef.current = selectedSort
-    orderRef.current = selectedOrder
-  }, [selectedSort, selectedOrder])
-
-  // Computed values
-  const filteredTopics = useMemo(() => {
-    // If no platforms or topics selected, show all
-    if (selectedPlatforms.length === 0 && selectedTopics.length === 0) {
-      return topics
+    // Apply platform filter
+    if (selectedPlatforms.length > 0) {
+      filtered = filtered.filter((topic) => selectedPlatforms.includes(topic.platform))
     }
 
-    return topics.filter((topic) => {
-      const platformMatch =
-        selectedPlatforms.length === 0 ||
-        selectedPlatforms.some((platform) => topic.platform.toLowerCase() === platform.toLowerCase())
-      const topicMatch = selectedTopics.length === 0 || selectedTopics.some((topicName) => topic.topic === topicName)
-      return platformMatch && topicMatch
-    })
-  }, [topics, selectedPlatforms, selectedTopics])
-
-  const displayedTopics = useMemo(() => filteredTopics.slice(0, displayCount), [filteredTopics, displayCount])
-
-  const remainingTopicsCount = useMemo(() => {
-    if (hasMoreData) {
-      // If we have more data from API, always show at least LOAD_MORE_INCREMENT
-      return Math.max(filteredTopics.length - displayCount, APP_CONFIG.LOAD_MORE_INCREMENT)
+    // Apply topic filter
+    if (selectedTopics.length > 0) {
+      filtered = filtered.filter((topic) => selectedTopics.includes(topic.topic))
     }
-    // Otherwise just show remaining filtered topics
-    return filteredTopics.length - displayCount
-  }, [filteredTopics.length, displayCount, hasMoreData])
 
-  // Event handlers
-  const handleInitialLoad = useCallback(async () => {
-    setLoading(true)
-    setTopicsLoading(true)
-    setFiltersLoading(true)
-    setError(null)
-    try {
-      await Promise.all([fetchStats(), fetchLastUpdate()])
-      // Fetch topics separately to avoid dependency issues
-      await fetchTopics()
-    } catch (error) {
-      setError('Failed to load initial data')
-    } finally {
-      setLoading(false)
-      setTopicsLoading(false)
-      setFiltersLoading(false)
-    }
-  }, [fetchStats, fetchLastUpdate])
+    // Apply sorting
+    const sorted = [...filtered].sort((a, b) => {
+      let aVal: any, bVal: any
 
-  const handleLoadMore = useCallback(async () => {
-    try {
-      if (hasMoreData) {
-        await fetchTopics(false, true) // Load more data from API
+      switch (selectedSort) {
+        case 'engagement':
+          // Use combined score + engagement for viral score sorting
+          aVal = (a.engagement || 0) + (a.score || 0)
+          bVal = (b.engagement || 0) + (b.score || 0)
+          break
+        case 'timestamp':
+          aVal = new Date(a.timestamp || '').getTime()
+          bVal = new Date(b.timestamp || '').getTime()
+          break
+        case 'random':
+          // For random, we'll use a seeded random based on topic ID to maintain consistency
+          aVal = (Number(a.id || 0) * 0.618033988749895) % 1 // Golden ratio for better distribution
+          bVal = (Number(b.id || 0) * 0.618033988749895) % 1
+          break
+        default:
+          aVal = new Date(a.timestamp || '').getTime()
+          bVal = new Date(b.timestamp || '').getTime()
       }
 
-      // Update display count for local pagination
-      const newCount = Math.min(
-        displayCount + APP_CONFIG.LOAD_MORE_INCREMENT,
-        filteredTopics.length + APP_CONFIG.LOAD_MORE_INCREMENT
-      )
-      setDisplayCount(newCount)
+      if (selectedOrder === 'asc') {
+        return aVal - bVal
+      } else {
+        return bVal - aVal
+      }
+    })
 
-      // Only show load more if we have more data from API or more filtered topics to show
-      setShowLoadMore(hasMoreData || newCount < filteredTopics.length)
-    } catch (error) {
-      console.error('Error loading more topics:', error)
-      setError('Failed to load more topics')
-    }
-  }, [displayCount, filteredTopics.length, hasMoreData, fetchTopics])
+    return sorted
+  }, [allTopics, selectedPlatforms, selectedTopics, selectedSort, selectedOrder])
 
-  const handlePlatformChange = useCallback((platforms: string[]) => {
+  // Topics to display (with local pagination)
+  const displayedTopics = useMemo(() => {
+    return processedTopics.slice(0, displayCount)
+  }, [processedTopics, displayCount])
+
+  // Calculate remaining topics for load more button
+  const remainingTopicsCount = processedTopics.length - displayCount
+  const canLoadMore = remainingTopicsCount > 0
+
+  // Event handlers
+  const handleLoadMore = useCallback(() => {
+    const newDisplayCount = Math.min(displayCount + APP_CONFIG.LOAD_MORE_INCREMENT, processedTopics.length)
+    setDisplayCount(newDisplayCount)
+  }, [displayCount, processedTopics.length])
+
+  const handlePlatformChange = useCallback((platforms: Platform[]) => {
     setSelectedPlatforms(platforms)
-    setDisplayCount(APP_CONFIG.INITIAL_DISPLAY_COUNT)
-    setShowLoadMore(true)
-    setCurrentOffset(0) // Reset pagination when filters change
+    setDisplayCount(APP_CONFIG.INITIAL_DISPLAY_COUNT) // Reset pagination
+  }, [])
+
+  const handleTopicChange = useCallback((topics: Topic[]) => {
+    setSelectedTopics(topics)
+    setDisplayCount(APP_CONFIG.INITIAL_DISPLAY_COUNT) // Reset pagination
   }, [])
 
   const handleSortChange = useCallback((sort: string) => {
     setSelectedSort(sort)
-    setDisplayCount(APP_CONFIG.INITIAL_DISPLAY_COUNT)
-    setShowLoadMore(true)
-    setCurrentOffset(0) // Reset pagination when filters change
+    setDisplayCount(APP_CONFIG.INITIAL_DISPLAY_COUNT) // Reset pagination
   }, [])
 
   const handleOrderChange = useCallback((order: string) => {
     setSelectedOrder(order)
-    setDisplayCount(APP_CONFIG.INITIAL_DISPLAY_COUNT)
-    setShowLoadMore(true)
-    setCurrentOffset(0) // Reset pagination when filters change
-  }, [])
-
-  const handleTopicChange = useCallback((topics: string[]) => {
-    setSelectedTopics(topics)
-    setDisplayCount(APP_CONFIG.INITIAL_DISPLAY_COUNT)
-    setShowLoadMore(true)
-    setCurrentOffset(0) // Reset pagination when filters change
+    setDisplayCount(APP_CONFIG.INITIAL_DISPLAY_COUNT) // Reset pagination
   }, [])
 
   const handleManualRefresh = useCallback(async () => {
-    try {
-      setTopicsLoading(true)
-      setCurrentOffset(0) // Reset pagination on manual refresh
-      await Promise.all([fetchTopicsRef.current(), fetchStatsRef.current(), fetchLastUpdateRef.current()])
-    } catch (error) {
-      setError('Failed to refresh data')
-    } finally {
-      setTopicsLoading(false)
-    }
-  }, [])
+    await Promise.all([fetchAllTopics(), fetchStats(), fetchLastUpdate()])
+  }, [fetchAllTopics, fetchStats, fetchLastUpdate])
 
   const scrollToTop = useCallback(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
 
-  // Effects
+  // Initial load
   useEffect(() => {
-    handleInitialLoad()
-
-    // Only check for database updates (no regular interval for fetching)
-    const dbUpdateInterval = setInterval(async () => {
-      try {
-        await fetchLastUpdateRef.current()
-        if (lastDbUpdate) {
-          const savedLastDbUpdate = localStorage.getItem(STORAGE_KEYS.LAST_DB_UPDATE)
-          if (!savedLastDbUpdate || savedLastDbUpdate !== lastDbUpdate) {
-            localStorage.setItem(STORAGE_KEYS.LAST_DB_UPDATE, lastDbUpdate)
-            // Database was updated, fetch fresh data
-            await Promise.all([fetchTopicsRef.current(), fetchStatsRef.current()])
-          }
-        }
-      } catch (error) {
-        // Silent error for database update check
-      }
-    }, APP_CONFIG.DB_CHECK_INTERVAL)
-
-    return () => {
-      clearInterval(dbUpdateInterval)
+    const initialLoad = async () => {
+      await Promise.all([fetchAllTopics(), fetchStats(), fetchLastUpdate()])
     }
-  }, [handleInitialLoad]) // Only depend on handleInitialLoad
+    initialLoad()
+  }, [fetchAllTopics, fetchStats, fetchLastUpdate])
 
+  // Reset display count when filters change
   useEffect(() => {
-    if (topics.length > 0) {
-      fetchTopicsRef.current(true) // Pass true for sorting
-    }
-  }, [selectedSort, selectedOrder])
+    setDisplayCount(APP_CONFIG.INITIAL_DISPLAY_COUNT)
+  }, [selectedPlatforms, selectedTopics, selectedSort, selectedOrder])
 
-  useEffect(() => {
-    if (topics.length > 0 && selectedTopics.length === 0) {
-      // Get unique topics from the data
-      const allAvailableTopics = Array.from(new Set(topics.map((topic) => topic.topic)))
-        .filter((topic) => topic && topic !== '')
-        .sort()
-
-      // Don't automatically select all topics - let user choose
-      // setSelectedTopics(allAvailableTopics)
-    }
-  }, [topics])
-
+  // Scroll to top button
   useEffect(() => {
     const handleScroll = () => {
       const scrollTop = window.pageYOffset || document.documentElement.scrollTop
@@ -379,7 +264,7 @@ export default function Home() {
         title: `${platform.label} Topics`,
         value: stats?.platform_stats?.[platform.key] || 0,
         icon: <PlatformIcon platform={platform.key} size={24} />,
-        color: getPlatformColor(platform.key) as any,
+        color: getStatsCardColor(platform.color),
       })),
     ]
 
@@ -397,9 +282,7 @@ export default function Home() {
 
   const renderTrendingCards = () => {
     if (loading) {
-      return Array.from({ length: 12 }).map((_, index) => (
-        <TrendingCardSkeleton key={`skeleton-${index}`} index={index} className="animate-in fade-in" />
-      ))
+      return Array.from({ length: 12 }).map((_, index) => <TrendingCardSkeleton key={`skeleton-${index}`} />)
     }
 
     return displayedTopics.map((topic, index) => (
@@ -413,15 +296,22 @@ export default function Home() {
   }
 
   const renderTopicsCount = () => {
+    const displayedCount = displayedTopics.length
+    const filteredCount = processedTopics.length
+    const totalLoadedFromAPI = allTopics.length
+
     return (
       <div className="flex items-center space-x-2">
         <p className="text-gray-600">
-          Showing {Math.min(displayCount, filteredTopics.length)} of {filteredTopics.length} trending topics
+          Showing {displayedCount} of {filteredCount} trending topics
+          {allTopics.length > 0 && (
+            <span className="text-sm text-gray-500 ml-1">({totalLoadedFromAPI} loaded from database)</span>
+          )}
         </p>
-        {sortingLoading && (
+        {loading && (
           <div className="flex items-center space-x-1 text-blue-600">
             <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-sm">Sorting...</span>
+            <span className="text-sm">Loading...</span>
           </div>
         )}
       </div>
@@ -429,7 +319,7 @@ export default function Home() {
   }
 
   const renderEmptyState = () => {
-    if (loading || filteredTopics.length > 0) return null
+    if (loading || processedTopics.length > 0) return null
 
     return (
       <div className="text-center py-12">
@@ -470,11 +360,11 @@ export default function Home() {
           </div>
           <button
             onClick={handleManualRefresh}
-            disabled={topicsLoading}
+            disabled={loading}
             className="flex items-center space-x-2 px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg
-              className={`w-4 h-4 ${topicsLoading ? 'animate-spin' : ''}`}
+              className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -486,7 +376,7 @@ export default function Home() {
                 d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
               />
             </svg>
-            <span>{topicsLoading ? 'Refreshing...' : 'Refresh'}</span>
+            <span>{loading ? 'Refreshing...' : 'Refresh'}</span>
           </button>
         </div>
       </div>
@@ -501,17 +391,27 @@ export default function Home() {
       {/* Stats Cards */}
       <div className="mb-8">
         <Swiper
-          key={loading ? 'loading' : 'loaded'}
           modules={[FreeMode]}
           slidesPerView="auto"
-          freeMode={true}
-          className="stats-swiper"
+          freeMode={{
+            enabled: true,
+            sticky: false,
+            momentum: true,
+            momentumRatio: 0.6,
+            momentumVelocityRatio: 0.6,
+          }}
+          className={`stats-swiper ${loading ? 'loading' : ''}`}
           watchSlidesProgress={true}
-          preventInteractionOnTransition={true}
+          resistanceRatio={0.85}
+          allowTouchMove={true}
+          simulateTouch={true}
+          touchStartPreventDefault={false}
+          preventClicks={false}
+          preventClicksPropagation={false}
         >
           {loading
-            ? // Loading skeletons with proper SwiperSlide structure
-              Array.from({ length: 7 }).map((_, index) => (
+            ? // Loading skeletons - match the actual number of cards (15 platforms + 1 total)
+              Array.from({ length: 16 }).map((_, index) => (
                 <SwiperSlide key={`skeleton-${index}`} style={{ width: 'auto' }}>
                   <StatsSkeleton />
                 </SwiperSlide>
@@ -531,17 +431,18 @@ export default function Home() {
           <PlatformFilter
             selectedPlatforms={selectedPlatforms}
             onPlatformChange={handlePlatformChange}
-            topics={topics}
+            topics={allTopics}
             stats={stats || undefined}
-            loading={filtersLoading}
+            loading={loading}
+            selectedTopics={selectedTopics}
           />
           <TopicFilter
             selectedTopics={selectedTopics}
             onTopicChange={handleTopicChange}
             selectedPlatforms={selectedPlatforms}
-            allTopics={topics}
+            allTopics={allTopics}
             stats={stats || undefined}
-            loading={filtersLoading}
+            loading={loading}
           />
         </div>
       </div>
@@ -549,22 +450,26 @@ export default function Home() {
       {/* Cards Container with Sort Filter */}
       <div className="relative pt-16 sm:pt-20">
         <div className="absolute top-0 right-0 z-10">
-          <SortFilter
-            selectedSort={selectedSort}
-            onSortChange={handleSortChange}
-            selectedOrder={selectedOrder}
-            onOrderChange={handleOrderChange}
-          />
+          {loading ? (
+            <SortFilterSkeleton />
+          ) : (
+            <SortFilter
+              selectedSort={selectedSort}
+              onSortChange={handleSortChange}
+              selectedOrder={selectedOrder}
+              onOrderChange={handleOrderChange}
+            />
+          )}
         </div>
 
         <div className="mb-4">{renderTopicsCount()}</div>
 
         <div className="trending-grid">{renderTrendingCards()}</div>
 
-        {showLoadMore && (hasMoreData || filteredTopics.length > displayCount) && remainingTopicsCount > 0 && (
+        {canLoadMore && (
           <div className="text-center mt-8">
-            <button onClick={handleLoadMore} className="btn-load-more text-lg" disabled={loadingMore}>
-              {loadingMore ? (
+            <button onClick={handleLoadMore} className="btn-load-more text-lg" disabled={loading}>
+              {loading ? (
                 <div className="flex items-center justify-center space-x-2">
                   <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                   <span>Loading...</span>
@@ -576,9 +481,9 @@ export default function Home() {
           </div>
         )}
 
-        {!showLoadMore && filteredTopics.length > 0 && (
+        {!canLoadMore && processedTopics.length > 0 && (
           <div className="text-center mt-8 text-gray-600">
-            <p>Showing all {filteredTopics.length} trending topics</p>
+            <p>Showing all {processedTopics.length} trending topics</p>
           </div>
         )}
 

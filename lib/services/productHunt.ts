@@ -1,45 +1,28 @@
-interface ProductHuntPost {
-  id: number
-  name: string
-  tagline: string
-  description: string
-  url: string
-  votes_count: number
-  comments_count: number
-  created_at: string
-  user: {
-    name: string
-    username: string
-  }
-  topics: {
-    edges: Array<{
-      node: {
-        name: string
-      }
-    }>
-  }
-  thumbnail: {
-    url: string
-  }
-}
+import { BaseService } from './base'
+import { Platform, Topic } from '../constants/enums'
 
 interface ProductHuntTopic {
-  platform: string
+  platform: Platform
   title: string
   description: string
   url: string
   score: number
   engagement: number
-  timestamp: string // Changed from Date to string
+  timestamp: string
   category: string
   tags: string[]
-  topic: string
+  topic: Topic
   author: string
 }
 
-export class ProductHuntService {
+export class ProductHuntService extends BaseService {
+  private accessToken: string
   private baseUrl = 'https://api.producthunt.com/v2/api/graphql'
-  private accessToken = process.env.PRODUCT_HUNT_ACCESS_TOKEN
+
+  constructor() {
+    super()
+    this.accessToken = process.env.PRODUCT_HUNT_ACCESS_TOKEN || ''
+  }
 
   async fetchTrendingTopics(limit = 50): Promise<ProductHuntTopic[]> {
     try {
@@ -100,86 +83,88 @@ export class ProductHuntService {
     }
   }
 
-  private transformPosts(posts: ProductHuntPost[]): ProductHuntTopic[] {
-    return posts.map((post) => ({
-      platform: 'Product Hunt',
-      title: post.name,
-      description: post.tagline,
-      url: post.url,
-      score: post.votes_count,
-      engagement: post.comments_count,
-      timestamp: post.created_at, // Already an ISO string
-      category: this.detectCategory(
-        post.topics.edges.map((t) => t.node.name),
-        post.tagline
-      ),
-      tags: post.topics.edges.map((t) => t.node.name.toLowerCase()),
-      topic: 'products',
-      author: post.user.name,
-    }))
+  private transformPosts(posts: any[]): ProductHuntTopic[] {
+    return posts.map((post) => {
+      // Calculate base score from votes and add minimum base score
+      const baseScore = 50 // Minimum base score
+      const votesScore = post.votes_count || 0
+      const finalScore = baseScore + votesScore
+
+      return {
+        platform: Platform.ProductHunt,
+        title: post.name,
+        description: post.tagline,
+        url: post.url,
+        score: finalScore,
+        engagement: post.comments_count,
+        timestamp: post.created_at,
+        category: this.detectCategory(
+          post.topics.edges.map((t: any) => t.node.name),
+          post.tagline
+        ),
+        tags: post.topics.edges.map((t: any) => t.node.name.toLowerCase()),
+        topic: Topic.Products,
+        author: post.user.name,
+      }
+    })
   }
 
   private getDemoData(limit: number): ProductHuntTopic[] {
-    const demoProducts = [
+    const demoPosts = [
       {
-        name: 'Notion AI',
-        tagline: 'Write, edit, and brainstorm with AI',
-        url: 'https://notion.so',
-        votes: 1250,
-        comments: 89,
-        topics: ['Productivity', 'AI'],
-        author: 'Notion Team',
+        name: 'AI Writing Assistant',
+        tagline: 'Write better content with AI-powered suggestions',
+        votes: 450,
+        comments: 32,
+        topics: ['AI', 'Productivity', 'Writing'],
+        author: 'Sarah Chen',
       },
       {
-        name: 'Midjourney',
-        tagline: 'AI-powered image generation',
-        url: 'https://midjourney.com',
-        votes: 2100,
-        comments: 156,
-        topics: ['AI', 'Design'],
-        author: 'Midjourney',
+        name: 'Remote Team Manager',
+        tagline: 'All-in-one platform for managing remote teams',
+        votes: 380,
+        comments: 28,
+        topics: ['Remote Work', 'Team Management', 'SaaS'],
+        author: 'Alex Johnson',
       },
       {
-        name: 'Linear',
-        tagline: 'Issue tracking for modern software teams',
-        url: 'https://linear.app',
-        votes: 890,
-        comments: 67,
-        topics: ['Productivity', 'Development'],
-        author: 'Linear Team',
+        name: 'Crypto Portfolio Tracker',
+        tagline: 'Track your crypto investments across all exchanges',
+        votes: 320,
+        comments: 45,
+        topics: ['Cryptocurrency', 'Finance', 'Investment'],
+        author: 'Michael Brown',
       },
       {
-        name: 'Figma',
-        tagline: 'Collaborative interface design tool',
-        url: 'https://figma.com',
-        votes: 3400,
-        comments: 234,
-        topics: ['Design', 'Collaboration'],
-        author: 'Figma',
+        name: 'Design System Generator',
+        tagline: 'Create consistent design systems in minutes',
+        votes: 290,
+        comments: 25,
+        topics: ['Design', 'Development', 'Tools'],
+        author: 'Emma Wilson',
       },
       {
-        name: 'Stripe',
-        tagline: 'Payment processing for internet businesses',
-        url: 'https://stripe.com',
-        votes: 1800,
-        comments: 123,
-        topics: ['Payments', 'Business'],
-        author: 'Stripe',
+        name: 'Social Media Scheduler',
+        tagline: 'Schedule and analyze your social media posts',
+        votes: 250,
+        comments: 18,
+        topics: ['Social Media', 'Marketing', 'Productivity'],
+        author: 'David Lee',
       },
     ]
 
-    return demoProducts.slice(0, limit).map((product) => ({
-      platform: 'Product Hunt',
-      title: product.name,
-      description: product.tagline,
-      url: product.url,
-      score: product.votes,
-      engagement: product.comments,
-      timestamp: new Date().toISOString(), // Use ISO string
-      category: this.detectCategory(product.topics, product.tagline),
-      tags: product.topics.map((t) => t.toLowerCase()),
-      topic: 'products',
-      author: product.author,
+    return demoPosts.slice(0, limit).map((post) => ({
+      platform: Platform.ProductHunt,
+      title: post.name,
+      description: post.tagline,
+      url: `https://www.producthunt.com/posts/${post.name.toLowerCase().replace(/\s+/g, '-')}`,
+      score: 50 + post.votes,
+      engagement: post.comments,
+      timestamp: new Date().toISOString(),
+      category: this.detectCategory(post.topics, post.tagline),
+      tags: post.topics.map((t: string) => t.toLowerCase()),
+      topic: Topic.Products,
+      author: post.author,
     }))
   }
 

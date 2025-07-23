@@ -1,25 +1,8 @@
-interface MastodonStatus {
-  id: string
-  content: string
-  url: string
-  reblogs_count: number
-  favourites_count: number
-  replies_count: number
-  created_at: string
-  account: {
-    username: string
-    display_name: string
-    acct: string
-  }
-  tags: Array<{
-    name: string
-    url: string
-  }>
-  visibility: string
-}
+import { BaseService } from './base'
+import { Platform, Topic } from '../constants/enums'
 
-interface MastodonTrendingTopic {
-  platform: string
+interface MastodonTopic {
+  platform: Platform
   title: string
   description: string
   url: string
@@ -28,15 +11,20 @@ interface MastodonTrendingTopic {
   timestamp: Date
   category: string
   tags: string[]
-  topic: string
+  topic: Topic
   author: string
 }
 
-export class MastodonService {
+export class MastodonService extends BaseService {
+  private accessToken: string
   private baseUrl = 'https://mastodon.social/api/v1'
-  private accessToken = process.env.MASTODON_ACCESS_TOKEN
 
-  async fetchTrendingTopics(limit = 50): Promise<MastodonTrendingTopic[]> {
+  constructor() {
+    super()
+    this.accessToken = process.env.MASTODON_ACCESS_TOKEN || ''
+  }
+
+  async fetchTrendingTopics(limit = 50): Promise<MastodonTopic[]> {
     try {
       if (!this.accessToken) {
         console.warn('Mastodon access token not configured, using demo data')
@@ -62,7 +50,7 @@ export class MastodonService {
       )
 
       const postsData = await Promise.all(postPromises)
-      const allPosts: MastodonStatus[] = postsData.flat()
+      const allPosts: any[] = postsData.flat()
 
       return this.transformPosts(allPosts).slice(0, limit)
     } catch (error) {
@@ -71,11 +59,11 @@ export class MastodonService {
     }
   }
 
-  private transformPosts(posts: MastodonStatus[]): MastodonTrendingTopic[] {
+  private transformPosts(posts: any[]): MastodonTopic[] {
     return posts
       .filter((post) => post.visibility === 'public')
       .map((post) => ({
-        platform: 'Mastodon',
+        platform: Platform.Mastodon,
         title: this.extractTitle(post.content),
         description: this.cleanContent(post.content),
         url: post.url,
@@ -84,10 +72,10 @@ export class MastodonService {
         timestamp: new Date(post.created_at),
         category: this.detectCategory(
           post.content,
-          post.tags.map((tag) => tag.name)
+          post.tags.map((tag: any) => tag.name)
         ),
-        tags: post.tags.map((tag) => tag.name),
-        topic: 'social-media',
+        tags: post.tags.map((tag: any) => tag.name),
+        topic: Topic.SocialMedia,
         author: post.account.display_name || post.account.username,
       }))
       .sort((a, b) => b.score - a.score)
@@ -105,73 +93,22 @@ export class MastodonService {
     return content.replace(/<[^>]*>/g, '').substring(0, 200)
   }
 
-  private getDemoData(limit: number): MastodonTrendingTopic[] {
+  private getDemoData(limit: number): MastodonTopic[] {
     const demoPosts = [
       {
-        title: 'The future of decentralized social media',
-        content: 'Exploring how Mastodon and other federated platforms are changing the social media landscape...',
-        url: 'https://mastodon.social/@user/123456',
-        reblogs: 45,
-        favourites: 123,
-        replies: 12,
-        tags: ['socialmedia', 'decentralization'],
-        author: 'TechEnthusiast',
-      },
-      {
-        title: 'Open source software development tips',
-        content: 'Here are some best practices for contributing to open source projects...',
-        url: 'https://mastodon.social/@user/123457',
-        reblogs: 23,
-        favourites: 89,
-        replies: 8,
-        tags: ['opensource', 'programming'],
-        author: 'DevGuru',
-      },
-      {
-        title: 'Privacy and security in the digital age',
-        content: 'How to protect your data and maintain privacy online...',
-        url: 'https://mastodon.social/@user/123458',
-        reblogs: 67,
-        favourites: 156,
-        replies: 15,
-        tags: ['privacy', 'security'],
-        author: 'PrivacyAdvocate',
-      },
-      {
-        title: 'AI and machine learning developments',
-        content: 'Latest updates in artificial intelligence and machine learning research...',
-        url: 'https://mastodon.social/@user/123459',
-        reblogs: 34,
-        favourites: 98,
-        replies: 11,
-        tags: ['ai', 'machinelearning'],
-        author: 'AIResearcher',
-      },
-      {
-        title: 'Climate change and sustainability',
-        content: 'Discussing environmental issues and sustainable solutions...',
-        url: 'https://mastodon.social/@user/123460',
-        reblogs: 89,
-        favourites: 234,
-        replies: 23,
-        tags: ['climate', 'sustainability'],
-        author: 'EcoWarrior',
+        content: 'This is a demo post from Mastodon! #mastodon #demo',
+        url: 'https://mastodon.social/@demo/1',
+        reblogs_count: 10,
+        favourites_count: 20,
+        replies_count: 5,
+        created_at: new Date().toISOString(),
+        tags: [{ name: 'mastodon' }, { name: 'demo' }],
+        account: { display_name: 'Demo User', username: 'demo' },
+        visibility: 'public',
       },
     ]
 
-    return demoPosts.slice(0, limit).map((post) => ({
-      platform: 'Mastodon',
-      title: post.title,
-      description: post.content,
-      url: post.url,
-      score: post.reblogs + post.favourites,
-      engagement: post.replies,
-      timestamp: new Date(),
-      category: this.detectCategory(post.content, post.tags),
-      tags: post.tags,
-      topic: 'social-media',
-      author: post.author,
-    }))
+    return this.transformPosts(demoPosts.slice(0, limit))
   }
 
   private detectCategory(content: string, tags: string[]): string {

@@ -1,3 +1,6 @@
+import { BaseService } from './base'
+import { Platform, Topic } from '../constants/enums'
+
 interface TwitchStream {
   id: string
   user_id: string
@@ -21,7 +24,7 @@ interface TwitchGame {
 }
 
 interface TwitchTopic {
-  platform: string
+  platform: Platform
   title: string
   description: string
   url: string
@@ -30,15 +33,21 @@ interface TwitchTopic {
   timestamp: Date
   category: string
   tags: string[]
-  topic: string
+  topic: Topic
   author: string
 }
 
-export class TwitchService {
+export class TwitchService extends BaseService {
   private baseUrl = 'https://api.twitch.tv/helix'
-  private clientId = process.env.TWITCH_CLIENT_ID
-  private clientSecret = process.env.TWITCH_CLIENT_SECRET
+  private clientId: string
+  private clientSecret: string
   private accessToken: string | null = null
+
+  constructor() {
+    super()
+    this.clientId = process.env.TWITCH_CLIENT_ID || ''
+    this.clientSecret = process.env.TWITCH_CLIENT_SECRET || ''
+  }
 
   async fetchTrendingTopics(limit = 50): Promise<TwitchTopic[]> {
     try {
@@ -108,7 +117,7 @@ export class TwitchService {
 
   private transformStreams(streams: TwitchStream[]): TwitchTopic[] {
     return streams.map((stream) => ({
-      platform: 'Twitch',
+      platform: Platform.Twitch,
       title: stream.title,
       description: `${stream.game_name} • ${stream.viewer_count.toLocaleString()} viewers`,
       url: `https://twitch.tv/${stream.user_login}`,
@@ -117,7 +126,7 @@ export class TwitchService {
       timestamp: new Date(stream.started_at),
       category: this.detectCategory(stream.game_name),
       tags: [stream.game_name.toLowerCase(), stream.language],
-      topic: 'gaming',
+      topic: Topic.Gaming,
       author: stream.user_name,
     }))
   }
@@ -162,7 +171,7 @@ export class TwitchService {
     ]
 
     return demoStreams.slice(0, limit).map((stream) => ({
-      platform: 'Twitch',
+      platform: Platform.Twitch,
       title: stream.title,
       description: `${stream.game} • ${stream.viewers.toLocaleString()} viewers`,
       url: `https://twitch.tv/${stream.streamer.toLowerCase()}`,
@@ -171,7 +180,7 @@ export class TwitchService {
       timestamp: new Date(),
       category: this.detectCategory(stream.game),
       tags: [stream.game.toLowerCase(), stream.language],
-      topic: 'gaming',
+      topic: Topic.Gaming,
       author: stream.streamer,
     }))
   }

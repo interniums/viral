@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { dataFetcherService } from '../../../lib/services/dataFetcher'
+import { dataFetcherService } from '@/lib/services'
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic'

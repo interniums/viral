@@ -66,12 +66,9 @@ export class CacheManager {
 // Global cache manager instance
 export const cacheManager = new CacheManager()
 
-// Cache keys
+// Cache keys (simplified for new architecture)
 export const CACHE_KEYS = {
-  trending_topics: 'viral:trending:topics',
   all_trending_topics: 'viral:trending:all_topics',
-  reddit_topics: 'viral:trending:reddit',
-  google_trends_topics: 'viral:trending:google_trends',
-  youtube_topics: 'viral:trending:youtube',
   stats: 'viral:stats:overview',
+  last_update: 'viral:last_update',
 } as const

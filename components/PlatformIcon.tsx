@@ -1,39 +1,44 @@
 import Image from 'next/image'
-import { PLATFORMS } from '../lib/constants/index'
-
-interface PlatformIconProps {
-  platform: string
-  size?: number
-  className?: string
-}
-
-// Create platform logos object from centralized constants
-const platformLogos: Record<string, string> = {}
-PLATFORMS.forEach((platform) => {
-  platformLogos[platform.key] = platform.icon
-})
+import { Platform } from '@/lib/constants/enums'
+import { PlatformIconProps } from '@/types'
 
 export default function PlatformIcon({ platform, size = 24, className = '' }: PlatformIconProps) {
-  const logoPath = platformLogos[platform as keyof typeof platformLogos]
-
-  if (!logoPath) {
-    return (
-      <span className={className} style={{ fontSize: size }}>
-        {platform.charAt(0).toUpperCase()}
-      </span>
-    )
+  const getIconPath = (platform: Platform): string => {
+    switch (platform) {
+      case Platform.Reddit:
+        return '/images/platforms/reddit-logo.svg'
+      case Platform.YouTube:
+        return '/images/platforms/youtube-logo.svg'
+      case Platform.GoogleTrends:
+        return '/images/platforms/google-trends-icon.svg'
+      case Platform.HackerNews:
+        return '/images/platforms/hackernews-logo.svg'
+      case Platform.GitHub:
+        return '/images/platforms/github-logo.svg'
+      case Platform.StackOverflow:
+        return '/images/platforms/stackoverflow-logo.svg'
+      case Platform.ProductHunt:
+        return '/images/platforms/producthunt-logo.svg'
+      case Platform.Twitch:
+        return '/images/platforms/twitch-logo.svg'
+      case Platform.Mastodon:
+        return '/images/platforms/joinmastodon-logo.svg'
+      case Platform.GNews:
+        return '/images/platforms/gnews-logo.svg'
+      case Platform.CoinGecko:
+        return '/images/platforms/coingecko-logo.svg'
+      case Platform.DevTo:
+        return '/images/platforms/devto-logo.svg'
+      case Platform.Steam:
+        return '/images/platforms/steam-logo.svg'
+      case Platform.TheGuardian:
+        return '/images/platforms/the-guardian-logo.svg'
+      case Platform.Binance:
+        return '/images/platforms/binance-logo.svg'
+      default:
+        return '/images/platforms/default-logo.svg'
+    }
   }
 
-  return (
-    <span className={className} style={{ width: size, height: size, display: 'inline-block' }}>
-      <Image
-        src={logoPath}
-        alt={`${platform} logo`}
-        width={size}
-        height={size}
-        className="object-contain"
-        style={{ width: size, height: size }}
-      />
-    </span>
-  )
+  return <Image src={getIconPath(platform)} alt={`${platform} logo`} width={size} height={size} className={className} />
 }

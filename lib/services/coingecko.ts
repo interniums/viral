@@ -1,3 +1,6 @@
+import { BaseService } from './base'
+import { Platform, Topic } from '../constants/enums'
+
 interface CoinGeckoCoin {
   id: string
   symbol: string
@@ -27,7 +30,7 @@ interface CoinGeckoCoin {
 }
 
 interface CoinGeckoTopic {
-  platform: string
+  platform: Platform
   title: string
   description: string
   url: string
@@ -36,11 +39,11 @@ interface CoinGeckoTopic {
   timestamp: Date
   category: string
   tags: string[]
-  topic: string
+  topic: Topic
   author: string
 }
 
-export class CoinGeckoService {
+export class CoinGeckoService extends BaseService {
   private baseUrl = 'https://api.coingecko.com/api/v3'
 
   async fetchTrendingTopics(limit = 50): Promise<CoinGeckoTopic[]> {
@@ -51,13 +54,46 @@ export class CoinGeckoService {
       const trendingData = await trendingResponse.json()
 
       // Fetch top coins by market cap
-      const topCoinsUrl = `${this.baseUrl}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=${limit}&page=1&sparkline=false`
+      const topCoinsUrl = `${this.baseUrl}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=${limit}&page=1&sparkline=false&price_change_percentage=24h`
       const topCoinsResponse = await fetch(topCoinsUrl)
       const topCoinsData = await topCoinsResponse.json()
 
-      // Combine trending and top coins
+      console.log(
+        '🦎 CoinGecko: Got top coins data, sample:',
+        topCoinsData?.[0]
+          ? {
+              name: topCoinsData[0].name,
+              price: topCoinsData[0].current_price,
+              change: topCoinsData[0].price_change_percentage_24h,
+            }
+          : 'No data'
+      )
+
+      // Get detailed data for trending coins since they only have basic info
       const trendingCoins = trendingData.coins?.map((coin: any) => coin.item) || []
-      const allCoins = [...trendingCoins, ...topCoinsData]
+      let enrichedTrendingCoins: any[] = []
+
+      if (trendingCoins.length > 0) {
+        // Get coin IDs for trending coins
+        const trendingIds = trendingCoins
+          .map((coin: any) => coin.id)
+          .slice(0, 15)
+          .join(',')
+
+        try {
+          const enrichedUrl = `${this.baseUrl}/coins/markets?vs_currency=usd&ids=${trendingIds}&order=market_cap_desc&per_page=15&page=1&sparkline=false&price_change_percentage=24h`
+          const enrichedResponse = await fetch(enrichedUrl)
+          const enrichedData = await enrichedResponse.json()
+          enrichedTrendingCoins = enrichedData || []
+        } catch (enrichError) {
+          console.warn('Failed to enrich trending coins data:', enrichError)
+          // Fall back to basic trending data
+          enrichedTrendingCoins = trendingCoins
+        }
+      }
+
+      // Combine enriched trending coins and top coins
+      const allCoins = [...enrichedTrendingCoins, ...topCoinsData]
       const uniqueCoins = this.deduplicateCoins(allCoins)
 
       return this.transformCoins(uniqueCoins.slice(0, limit))
@@ -78,31 +114,42 @@ export class CoinGeckoService {
     })
   }
 
-  private transformCoins(coins: CoinGeckoCoin[]): CoinGeckoTopic[] {
-    return coins.map((coin) => ({
-      platform: 'CoinGecko',
-      title: `${coin.name} (${coin.symbol.toUpperCase()})`,
-      description: `Price: $${coin.current_price?.toLocaleString() || 'N/A'} | Market Cap: $${
-        coin.market_cap?.toLocaleString() || 'N/A'
-      } | 24h Change: ${coin.price_change_percentage_24h?.toFixed(2) || 'N/A'}%`,
-      url: `https://www.coingecko.com/en/coins/${coin.id}`,
-      score: this.calculateScore(coin),
-      engagement: coin.total_volume || Math.floor(Math.random() * 1000000) + 100000,
-      timestamp: new Date(coin.last_updated || Date.now()),
-      category: this.detectCategory(coin),
-      tags: this.extractTags(coin),
-      topic: 'cryptocurrency',
-      author: 'CoinGecko',
-    }))
+  private transformCoins(coins: any[]): CoinGeckoTopic[] {
+    return coins.map((coin) => {
+      // Handle both full market data and basic trending data
+      const currentPrice = coin.current_price || 0
+      const marketCap = coin.market_cap || 0
+      const priceChange24h = coin.price_change_percentage_24h || 0
+      const volume = coin.total_volume || 0
+
+      return {
+        platform: Platform.CoinGecko,
+        title: `${coin.name || 'Unknown'} (${(coin.symbol || 'UNK').toUpperCase()})`,
+        description: currentPrice
+          ? `Price: $${currentPrice.toLocaleString()} | Market Cap: $${marketCap.toLocaleString()} | 24h Change: ${priceChange24h}%`
+          : `${coin.name || 'Cryptocurrency'} - Market data loading...`,
+        url: `https://www.coingecko.com/en/coins/${coin.id}`,
+        score: this.calculateScore(coin),
+        engagement: priceChange24h, // Store price change percentage for display in TrendingCard
+        timestamp: new Date(coin.last_updated || Date.now()),
+        category: this.detectCategory(coin),
+        tags: this.extractTags(coin),
+        topic: Topic.Cryptocurrency,
+        author: 'CoinGecko',
+      }
+    })
   }
 
   private calculateScore(coin: CoinGeckoCoin): number {
     const marketCap = coin.market_cap || 0
-    const volume = coin.total_volume || 0
+    const volume = coin.total_volume || marketCap * 0.1 // Fallback: estimate volume as 10% of market cap
     const priceChange = Math.abs(coin.price_change_percentage_24h || 0)
 
     // Score based on market cap, volume, and price volatility
-    return Math.floor(marketCap / 1000000 + volume / 100000 + priceChange * 100)
+    const baseScore = Math.floor(marketCap / 1000000 + volume / 100000 + priceChange * 100)
+
+    // Ensure minimum score for visibility
+    return Math.max(1, baseScore)
   }
 
   private getDemoData(limit: number): CoinGeckoTopic[] {
@@ -155,18 +202,18 @@ export class CoinGeckoService {
     ]
 
     return demoCoins.slice(0, limit).map((coin) => ({
-      platform: 'CoinGecko',
+      platform: Platform.CoinGecko,
       title: `${coin.name} (${coin.symbol.toUpperCase()})`,
-      description: `Price: $${coin.current_price.toLocaleString()} | Market Cap: $${coin.market_cap.toLocaleString()} | 24h Change: ${coin.price_change_percentage_24h.toFixed(
-        2
-      )}%`,
+      description: `Price: $${coin.current_price.toLocaleString()} | Market Cap: $${coin.market_cap.toLocaleString()} | 24h Change: ${
+        coin.price_change_percentage_24h
+      }%`,
       url: `https://www.coingecko.com/en/coins/${coin.symbol}`,
       score: this.calculateScore(coin as any),
-      engagement: coin.total_volume,
+      engagement: coin.price_change_percentage_24h, // Store price change percentage for display
       timestamp: new Date(),
       category: this.detectCategory(coin as any),
       tags: this.extractTags(coin as any),
-      topic: 'cryptocurrency',
+      topic: Topic.Cryptocurrency,
       author: 'CoinGecko',
     }))
   }

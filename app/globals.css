@@ -97,6 +97,117 @@
     @apply hover:shadow-lg;
   }
 
+  .trending-card {
+    @apply relative flex flex-col justify-between h-[150px] p-3.5 bg-white border border-gray-200 rounded-lg cursor-pointer;
+    box-sizing: border-box;
+    /* Smoother and smaller hover animation */
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateY(0);
+    /* Prevent font glitching */
+    font-smooth: antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    backface-visibility: hidden;
+    will-change: transform;
+    /* Focus styles for accessibility */
+    outline: none;
+  }
+
+  .trending-card:hover {
+    transform: translateY(-4px);
+    @apply shadow-lg border-gray-300;
+  }
+
+  .trending-card:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
+
+  .trending-card:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Prevent font glitching in card content */
+  .trending-card h3,
+  .trending-card p,
+  .trending-card span {
+    font-smooth: antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    transform: translateZ(0);
+  }
+
+  /* New trending card design */
+  .trending-card-new {
+    @apply flex flex-col p-6 bg-white border border-gray-200 rounded-xl cursor-pointer;
+    box-sizing: border-box;
+    min-height: 280px;
+    /* Smoother and smaller hover animation */
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateY(0);
+    /* Prevent font glitching */
+    font-smooth: antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    backface-visibility: hidden;
+    will-change: transform;
+    /* Focus styles for accessibility */
+    outline: none;
+  }
+
+  .trending-card-new:hover {
+    transform: translateY(-4px);
+    @apply shadow-lg border-gray-300;
+  }
+
+  .trending-card-new:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+  }
+
+  .trending-card-new:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* Prevent font glitching in new card content */
+  .trending-card-new h3,
+  .trending-card-new p,
+  .trending-card-new span {
+    font-smooth: antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    transform: translateZ(0);
+  }
+
+  /* Ensure grid stability */
+  .trending-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .viral-score {
+    @apply inline-flex items-center px-2 py-1 rounded-lg text-sm font-semibold;
+  }
+
+  .score-high {
+    @apply bg-red-100 text-red-800;
+  }
+
+  .score-medium {
+    @apply bg-orange-100 text-orange-800;
+  }
+
+  .score-low {
+    @apply bg-gray-100 text-gray-800;
+  }
+
   .btn-primary {
     @apply bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200;
   }
@@ -130,10 +241,6 @@
     @apply bg-orange-100 text-orange-800;
   }
 
-  /* .platform-twitter {
-    @apply bg-blue-100 text-blue-800;
-  } */
-
   .platform-youtube {
     @apply bg-red-100 text-red-800;
   }
@@ -153,75 +260,6 @@
 
   .platform-icon-google-trends {
     @apply text-orange-600;
-  }
-
-  .trending-card {
-    @apply card card-hover p-6 cursor-pointer;
-    /* Prevent layout shift */
-    min-height: 200px;
-    box-sizing: border-box;
-    /* Smoother and smaller hover animation */
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    transform: translateY(0);
-    /* Prevent font glitching */
-    font-smooth: antialiased;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-    backface-visibility: hidden;
-    will-change: transform;
-    /* Focus styles for accessibility */
-    outline: none;
-  }
-
-  .trending-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  }
-
-  .trending-card:focus {
-    outline: 2px solid #3b82f6;
-    outline-offset: 2px;
-  }
-
-  .trending-card:focus:not(:focus-visible) {
-    outline: none;
-  }
-
-  /* Prevent font glitching in card content */
-  .trending-card h3,
-  .trending-card p,
-  .trending-card span {
-    font-smooth: antialiased;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
-    transform: translateZ(0);
-  }
-
-  /* Ensure grid stability */
-  .trending-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-    gap: 1.5rem;
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  .viral-score {
-    @apply inline-flex items-center px-2 py-1 rounded-lg text-sm font-semibold;
-  }
-
-  .score-high {
-    @apply bg-red-100 text-red-800;
-  }
-
-  .score-medium {
-    @apply bg-orange-100 text-orange-800;
-  }
-
-  .score-low {
-    @apply bg-gray-100 text-gray-800;
   }
 }
 
@@ -267,7 +305,7 @@
 
   .skeleton-card {
     @apply card p-6;
-    min-height: 200px;
+    height: 150px;
   }
 
   /* Ensure skeleton elements are visible and consistent */
@@ -367,7 +405,14 @@
     cursor: grab;
     /* Prevent layout shifts during loading transitions */
     min-height: 120px;
-    transition: opacity 0.3s ease-in-out;
+    /* Smooth opacity transition for content changes */
+    opacity: 1;
+    transition: opacity 0.2s ease-in-out;
+    /* Allow text selection */
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
   }
 
   .stats-swiper:active {
@@ -376,26 +421,85 @@
 
   .stats-swiper .swiper-slide {
     width: auto !important;
-    /* Ensure consistent sizing during transitions */
-    transition: all 0.3s ease-in-out;
+    /* Smooth slide transitions without layout shifts */
+    transition: opacity 0.2s ease-in-out;
+    /* Allow text selection within slides */
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+  }
+
+  /* Allow text selection in stats cards */
+  .stats-swiper .swiper-slide .card {
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+  }
+
+  /* Specific text elements should be selectable */
+  .stats-swiper .swiper-slide .card p,
+  .stats-swiper .swiper-slide .card span,
+  .stats-swiper .swiper-slide .card div {
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    pointer-events: auto;
+  }
+
+  /* Prevent drag when selecting text */
+  .stats-swiper .swiper-slide .card p:hover,
+  .stats-swiper .swiper-slide .card span:hover {
+    cursor: text;
   }
 
   /* Hide scrollbar for webkit browsers */
   .stats-swiper .swiper-wrapper {
     -ms-overflow-style: none; /* IE and Edge */
     scrollbar-width: none; /* Firefox */
-    /* Prevent layout shifts */
+    /* Prevent layout shifts and ensure consistent alignment */
     display: flex;
     align-items: stretch;
+    transition: transform 0.3s ease-out;
+    /* Allow interaction during transitions */
+    pointer-events: auto;
   }
 
   .stats-swiper .swiper-wrapper::-webkit-scrollbar {
     display: none; /* Chrome, Safari and Opera */
   }
 
-  /* Ensure skeleton cards maintain consistent dimensions */
+  /* Ensure swiper maintains interactivity during all states */
+  .stats-swiper.swiper-container-free-mode > .swiper-wrapper {
+    transition-timing-function: ease-out;
+    margin: 0;
+    pointer-events: auto;
+  }
+
+  /* Ensure consistent card dimensions for both skeleton and actual cards */
   .stats-swiper .swiper-slide > div {
     min-width: 240px;
     min-height: 120px;
+    /* Prevent content jumping during loading state changes */
+    box-sizing: border-box;
+  }
+
+  /* Loading state optimization */
+  .stats-swiper.loading .swiper-slide {
+    opacity: 0.7;
+  }
+
+  /* Text selection utility class */
+  .select-text {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
+  }
+
+  .select-text:hover {
+    cursor: text !important;
   }
 }

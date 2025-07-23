@@ -1,3 +1,6 @@
+import { BaseService } from './base'
+import { Platform, Topic } from '../constants/enums'
+
 interface GNewsArticle {
   title: string
   description: string
@@ -12,7 +15,7 @@ interface GNewsArticle {
 }
 
 interface GNewsTopic {
-  platform: string
+  platform: Platform
   title: string
   description: string
   url: string
@@ -21,11 +24,11 @@ interface GNewsTopic {
   timestamp: Date
   category: string
   tags: string[]
-  topic: string
+  topic: Topic
   author: string
 }
 
-export class GNewsService {
+export class GNewsService extends BaseService {
   private baseUrl = 'https://gnews.io/api/v4'
   private apiKey = process.env.GNEWS_API_KEY
 
@@ -73,9 +76,9 @@ export class GNewsService {
     })
   }
 
-  private transformArticles(articles: GNewsArticle[]): GNewsTopic[] {
+  private transformArticles(articles: any[]): GNewsTopic[] {
     return articles.map((article) => ({
-      platform: 'GNews',
+      platform: Platform.GNews,
       title: article.title,
       description: article.description || article.content?.substring(0, 200) || 'No description available',
       url: article.url,
@@ -84,7 +87,7 @@ export class GNewsService {
       timestamp: new Date(article.publishedAt),
       category: this.detectCategory(article.title, article.description || ''),
       tags: this.extractTags(article.title, article.description || ''),
-      topic: 'news',
+      topic: Topic.News,
       author: article.source.name,
     }))
   }
@@ -143,7 +146,7 @@ export class GNewsService {
     ]
 
     return demoArticles.slice(0, limit).map((article) => ({
-      platform: 'GNews',
+      platform: Platform.GNews,
       title: article.title,
       description: article.description,
       url: article.url,
@@ -152,77 +155,41 @@ export class GNewsService {
       timestamp: new Date(article.publishedAt),
       category: this.detectCategory(article.title, article.description),
       tags: this.extractTags(article.title, article.description),
-      topic: 'news',
+      topic: Topic.News,
       author: article.source,
     }))
   }
 
   private detectCategory(title: string, description: string): string {
-    const lowerTitle = title.toLowerCase()
-    const lowerDesc = description.toLowerCase()
+    const text = `${title} ${description}`.toLowerCase()
 
-    if (
-      lowerTitle.includes('ai') ||
-      lowerTitle.includes('artificial intelligence') ||
-      lowerDesc.includes('machine learning')
-    ) {
-      return 'artificial-intelligence'
+    if (text.includes('politics') || text.includes('government') || text.includes('election')) {
+      return 'politics'
     }
-    if (lowerTitle.includes('crypto') || lowerTitle.includes('bitcoin') || lowerTitle.includes('blockchain')) {
-      return 'cryptocurrency'
+    if (text.includes('technology') || text.includes('tech') || text.includes('ai')) {
+      return 'technology'
     }
-    if (lowerTitle.includes('market') || lowerTitle.includes('stock') || lowerTitle.includes('economy')) {
-      return 'finance'
+    if (text.includes('business') || text.includes('economy') || text.includes('market')) {
+      return 'business'
     }
-    if (lowerTitle.includes('climate') || lowerTitle.includes('environment') || lowerTitle.includes('global warming')) {
-      return 'environment'
+    if (text.includes('sports') || text.includes('game') || text.includes('match')) {
+      return 'sports'
     }
-    if (lowerTitle.includes('space') || lowerTitle.includes('nasa') || lowerTitle.includes('spacex')) {
-      return 'science'
+    if (text.includes('entertainment') || text.includes('movie') || text.includes('music')) {
+      return 'entertainment'
     }
-    if (lowerTitle.includes('cyber') || lowerTitle.includes('security') || lowerTitle.includes('hack')) {
-      return 'security'
-    }
-
-    return 'general'
+    return 'news'
   }
 
   private extractTags(title: string, description: string): string[] {
-    const tags: string[] = []
-    const lowerTitle = title.toLowerCase()
-    const lowerDesc = description.toLowerCase()
+    const text = `${title} ${description}`.toLowerCase()
+    const tags = ['news']
 
-    // Extract common news keywords
-    const keywords = [
-      'ai',
-      'artificial intelligence',
-      'crypto',
-      'bitcoin',
-      'blockchain',
-      'market',
-      'stock',
-      'economy',
-      'climate',
-      'environment',
-      'space',
-      'cyber',
-      'security',
-      'tech',
-      'technology',
-      'science',
-      'health',
-      'politics',
-      'business',
-      'finance',
-      'entertainment',
-      'sports',
-    ]
-
-    keywords.forEach((keyword) => {
-      if (lowerTitle.includes(keyword) || lowerDesc.includes(keyword)) {
-        tags.push(keyword)
-      }
-    })
+    if (text.includes('politics')) tags.push('politics')
+    if (text.includes('technology')) tags.push('technology')
+    if (text.includes('business')) tags.push('business')
+    if (text.includes('sports')) tags.push('sports')
+    if (text.includes('entertainment')) tags.push('entertainment')
 
     return tags
   }

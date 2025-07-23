@@ -1,3 +1,6 @@
+import { BaseService } from './base'
+import { Platform, Topic } from '../constants/enums'
+
 interface HackerNewsStory {
   id: number
   title: string
@@ -10,7 +13,7 @@ interface HackerNewsStory {
 }
 
 interface HackerNewsTopic {
-  platform: string
+  platform: Platform
   title: string
   description: string
   url: string
@@ -19,12 +22,28 @@ interface HackerNewsTopic {
   timestamp: Date
   category: string
   tags: string[]
-  topic: string
+  topic: Topic
   author: string
 }
 
-export class HackerNewsService {
+export class HackerNewsService extends BaseService {
   private baseUrl = 'https://hacker-news.firebaseio.com/v0'
+
+  private transformStories(stories: any[]): HackerNewsTopic[] {
+    return stories.map((story) => ({
+      platform: Platform.HackerNews,
+      title: story.title,
+      description: `Score: ${story.score} | Comments: ${story.descendants || 0}`,
+      url: story.url || `https://news.ycombinator.com/item?id=${story.id}`,
+      score: story.score,
+      engagement: story.descendants || 0,
+      timestamp: new Date(story.time * 1000),
+      category: this.detectCategory(story.title, story.type),
+      tags: this.extractTags(story),
+      topic: Topic.Technology,
+      author: story.by,
+    }))
+  }
 
   async fetchTrendingTopics(limit = 50): Promise<HackerNewsTopic[]> {
     try {
@@ -45,22 +64,7 @@ export class HackerNewsService {
       const stories: HackerNewsStory[] = await Promise.all(storyPromises)
 
       // Transform to our format
-      const trendingTopics: HackerNewsTopic[] = stories
-        .filter((story) => story && story.type === 'story' && story.url)
-        .map((story) => ({
-          platform: 'Hacker News',
-          title: story.title,
-          description: `Score: ${story.score} | Comments: ${story.descendants}`,
-          url: story.url!,
-          score: story.score,
-          engagement: story.descendants,
-          timestamp: new Date(story.time * 1000),
-          category: this.detectCategory(story.title),
-          tags: this.extractTags(story.title),
-          topic: 'technology',
-          author: story.by,
-        }))
-        .sort((a, b) => b.score - a.score)
+      const trendingTopics: HackerNewsTopic[] = this.transformStories(stories).sort((a, b) => b.score - a.score)
 
       return trendingTopics
     } catch (error) {
@@ -69,31 +73,46 @@ export class HackerNewsService {
     }
   }
 
-  private detectCategory(title: string): string {
+  private detectCategory(title: string, type: string): string {
     const lowerTitle = title.toLowerCase()
 
-    if (lowerTitle.includes('ai') || lowerTitle.includes('machine learning') || lowerTitle.includes('gpt')) {
+    if (
+      type === 'story' &&
+      (lowerTitle.includes('ai') || lowerTitle.includes('machine learning') || lowerTitle.includes('gpt'))
+    ) {
       return 'artificial-intelligence'
     }
-    if (lowerTitle.includes('crypto') || lowerTitle.includes('bitcoin') || lowerTitle.includes('blockchain')) {
+    if (
+      type === 'story' &&
+      (lowerTitle.includes('crypto') || lowerTitle.includes('bitcoin') || lowerTitle.includes('blockchain'))
+    ) {
       return 'cryptocurrency'
     }
-    if (lowerTitle.includes('startup') || lowerTitle.includes('funding') || lowerTitle.includes('venture')) {
+    if (
+      type === 'story' &&
+      (lowerTitle.includes('startup') || lowerTitle.includes('funding') || lowerTitle.includes('venture'))
+    ) {
       return 'startups'
     }
-    if (lowerTitle.includes('security') || lowerTitle.includes('hack') || lowerTitle.includes('breach')) {
+    if (
+      type === 'story' &&
+      (lowerTitle.includes('security') || lowerTitle.includes('hack') || lowerTitle.includes('breach'))
+    ) {
       return 'security'
     }
-    if (lowerTitle.includes('programming') || lowerTitle.includes('code') || lowerTitle.includes('developer')) {
+    if (
+      type === 'story' &&
+      (lowerTitle.includes('programming') || lowerTitle.includes('code') || lowerTitle.includes('developer'))
+    ) {
       return 'programming'
     }
 
     return 'technology'
   }
 
-  private extractTags(title: string): string[] {
+  private extractTags(story: HackerNewsStory): string[] {
     const tags: string[] = []
-    const lowerTitle = title.toLowerCase()
+    const lowerTitle = story.title.toLowerCase()
 
     // Extract common tech keywords
     const keywords = [

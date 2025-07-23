@@ -1,12 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
-import { SUPABASE_CONFIG } from './config'
-
-export const supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey)
+import { Platform, Topic } from './constants/enums'
 
 // Database types
 export interface TrendingTopic {
   id?: number
-  platform: string
+  platform: Platform
   title: string
   description?: string
   url?: string
@@ -15,7 +13,7 @@ export interface TrendingTopic {
   timestamp?: string
   category?: string
   tags?: string[]
-  topic?: string
+  topic?: Topic
   author?: string
   created_at?: string
 }
@@ -23,6 +21,12 @@ export interface TrendingTopic {
 export interface DatabaseStats {
   total_topics_7d: number
   total_topics_all_time: number
-  platform_stats: Record<string, number>
-  category_stats: Record<string, number>
+  platform_stats: Record<Platform, number>
+  category_stats: Record<Topic, number>
 }
+
+// Initialize Supabase client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+
+export const supabase = createClient(supabaseUrl, supabaseKey)

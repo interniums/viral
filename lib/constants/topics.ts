@@ -1,18 +1,10 @@
+import { Topic as TopicEnum, TopicCategory } from './enums'
+
 export interface Topic {
-  key: string
+  key: TopicEnum
   label: string
   icon: string
-  category:
-    | 'general'
-    | 'technology'
-    | 'entertainment'
-    | 'finance'
-    | 'gaming'
-    | 'news'
-    | 'crypto'
-    | 'lifestyle'
-    | 'sports'
-    | 'politics'
+  category: TopicCategory
   description: string
   color: string
   tags: string[]
@@ -21,10 +13,10 @@ export interface Topic {
 export const TOPICS: Topic[] = [
   // General
   {
-    key: 'general',
+    key: TopicEnum.General,
     label: 'General',
     icon: '🌐',
-    category: 'general',
+    category: TopicCategory.General,
     description: 'General trending topics and discussions',
     color: 'gray',
     tags: ['general', 'trending', 'popular'],
@@ -32,109 +24,109 @@ export const TOPICS: Topic[] = [
 
   // Technology
   {
-    key: 'technology',
+    key: TopicEnum.Technology,
     label: 'Technology',
     icon: '💻',
-    category: 'technology',
+    category: TopicCategory.Technology,
     description: 'Technology news, innovations, and developments',
     color: 'blue',
     tags: ['tech', 'innovation', 'software', 'hardware'],
   },
   {
-    key: 'programming',
+    key: TopicEnum.Programming,
     label: 'Programming',
     icon: '👨‍💻',
-    category: 'technology',
+    category: TopicCategory.Technology,
     description: 'Programming languages, frameworks, and development',
     color: 'blue',
     tags: ['coding', 'development', 'software', 'programming'],
   },
   {
-    key: 'artificial-intelligence',
+    key: TopicEnum.ArtificialIntelligence,
     label: 'AI & ML',
     icon: '🤖',
-    category: 'technology',
+    category: TopicCategory.Technology,
     description: 'Artificial intelligence and machine learning',
     color: 'purple',
     tags: ['ai', 'ml', 'machine-learning', 'neural-networks'],
   },
   {
-    key: 'ai',
+    key: TopicEnum.AI,
     label: 'AI',
     icon: '🤖',
-    category: 'technology',
+    category: TopicCategory.Technology,
     description: 'Artificial intelligence developments',
     color: 'purple',
     tags: ['artificial-intelligence', 'ai', 'automation'],
   },
   {
-    key: 'frontend',
+    key: TopicEnum.Frontend,
     label: 'Frontend',
     icon: '🎨',
-    category: 'technology',
+    category: TopicCategory.Technology,
     description: 'Frontend development and web technologies',
     color: 'blue',
     tags: ['frontend', 'web', 'ui', 'ux', 'react', 'vue', 'angular'],
   },
   {
-    key: 'backend',
+    key: TopicEnum.Backend,
     label: 'Backend',
     icon: '⚙️',
-    category: 'technology',
+    category: TopicCategory.Technology,
     description: 'Backend development and server technologies',
     color: 'blue',
     tags: ['backend', 'server', 'api', 'database'],
   },
   {
-    key: 'mobile',
+    key: TopicEnum.Mobile,
     label: 'Mobile',
     icon: '📱',
-    category: 'technology',
+    category: TopicCategory.Technology,
     description: 'Mobile app development and mobile technologies',
     color: 'blue',
     tags: ['mobile', 'ios', 'android', 'app-development'],
   },
   {
-    key: 'database',
+    key: TopicEnum.Database,
     label: 'Database',
     icon: '🗄️',
-    category: 'technology',
+    category: TopicCategory.Technology,
     description: 'Database technologies and data management',
     color: 'blue',
     tags: ['database', 'sql', 'nosql', 'data'],
   },
   {
-    key: 'devops',
+    key: TopicEnum.DevOps,
     label: 'DevOps',
     icon: '🔧',
-    category: 'technology',
+    category: TopicCategory.Technology,
     description: 'DevOps practices and tools',
     color: 'blue',
     tags: ['devops', 'ci-cd', 'deployment', 'automation'],
   },
   {
-    key: 'security',
+    key: TopicEnum.Security,
     label: 'Security',
     icon: '🔒',
-    category: 'technology',
+    category: TopicCategory.Technology,
     description: 'Cybersecurity and information security',
     color: 'red',
     tags: ['security', 'cybersecurity', 'privacy', 'hacking'],
   },
   {
-    key: 'blockchain',
+    key: TopicEnum.Blockchain,
     label: 'Blockchain',
     icon: '⛓️',
-    category: 'technology',
+    category: TopicCategory.Technology,
     description: 'Blockchain technology and distributed systems',
     color: 'purple',
     tags: ['blockchain', 'distributed-ledger', 'web3'],
   },
   {
-    key: 'open-source',
+    key: TopicEnum.OpenSource,
     label: 'Open Source',
     icon: '📦',
-    category: 'technology',
+    category: TopicCategory.Technology,
     description: 'Open source projects and communities',
     color: 'green',
     tags: ['open-source', 'github', 'community', 'collaboration'],
@@ -142,19 +134,19 @@ export const TOPICS: Topic[] = [
 
   // Entertainment
   {
-    key: 'entertainment',
+    key: TopicEnum.Entertainment,
     label: 'Entertainment',
     icon: '🎬',
-    category: 'entertainment',
+    category: TopicCategory.Entertainment,
     description: 'Entertainment industry news and trends',
     color: 'purple',
     tags: ['entertainment', 'movies', 'tv', 'music', 'celebrity'],
   },
   {
-    key: 'memes',
+    key: TopicEnum.Memes,
     label: 'Memes',
     icon: '😂',
-    category: 'entertainment',
+    category: TopicCategory.Entertainment,
     description: 'Viral memes and internet culture',
     color: 'yellow',
     tags: ['memes', 'viral', 'internet-culture', 'humor'],
@@ -162,37 +154,37 @@ export const TOPICS: Topic[] = [
 
   // Finance
   {
-    key: 'finance',
+    key: TopicEnum.Finance,
     label: 'Finance',
     icon: '💰',
-    category: 'finance',
+    category: TopicCategory.Finance,
     description: 'Financial markets and economic news',
     color: 'green',
     tags: ['finance', 'markets', 'economy', 'investment'],
   },
   {
-    key: 'business',
+    key: TopicEnum.Business,
     label: 'Business',
     icon: '💼',
-    category: 'finance',
+    category: TopicCategory.Finance,
     description: 'Business news and corporate developments',
     color: 'blue',
     tags: ['business', 'corporate', 'startups', 'entrepreneurship'],
   },
   {
-    key: 'startups',
+    key: TopicEnum.Startups,
     label: 'Startups',
     icon: '🚀',
-    category: 'finance',
+    category: TopicCategory.Finance,
     description: 'Startup ecosystem and entrepreneurship',
     color: 'orange',
     tags: ['startups', 'entrepreneurship', 'innovation', 'funding'],
   },
   {
-    key: 'products',
+    key: TopicEnum.Products,
     label: 'Products',
     icon: '📱',
-    category: 'finance',
+    category: TopicCategory.Finance,
     description: 'Product launches and reviews',
     color: 'blue',
     tags: ['products', 'launches', 'reviews', 'innovation'],
@@ -200,73 +192,73 @@ export const TOPICS: Topic[] = [
 
   // Gaming
   {
-    key: 'gaming',
+    key: TopicEnum.Gaming,
     label: 'Gaming',
     icon: '🎮',
-    category: 'gaming',
+    category: TopicCategory.Gaming,
     description: 'Video games and gaming industry',
     color: 'purple',
     tags: ['gaming', 'video-games', 'esports', 'streaming'],
   },
   {
-    key: 'fps',
+    key: TopicEnum.FPS,
     label: 'FPS',
     icon: '🎯',
-    category: 'gaming',
+    category: TopicCategory.Gaming,
     description: 'First-person shooter games',
     color: 'red',
     tags: ['fps', 'shooter', 'action', 'gaming'],
   },
   {
-    key: 'moba',
+    key: TopicEnum.MOBA,
     label: 'MOBA',
     icon: '⚔️',
-    category: 'gaming',
+    category: TopicCategory.Gaming,
     description: 'Multiplayer online battle arena games',
     color: 'blue',
     tags: ['moba', 'strategy', 'multiplayer', 'gaming'],
   },
   {
-    key: 'battle-royale',
+    key: TopicEnum.BattleRoyale,
     label: 'Battle Royale',
     icon: '🏆',
-    category: 'gaming',
+    category: TopicCategory.Gaming,
     description: 'Battle royale games',
     color: 'orange',
     tags: ['battle-royale', 'survival', 'multiplayer', 'gaming'],
   },
   {
-    key: 'sandbox',
+    key: TopicEnum.Sandbox,
     label: 'Sandbox',
     icon: '🏗️',
-    category: 'gaming',
+    category: TopicCategory.Gaming,
     description: 'Sandbox and creative games',
     color: 'green',
     tags: ['sandbox', 'creative', 'building', 'gaming'],
   },
   {
-    key: 'rpg',
+    key: TopicEnum.RPG,
     label: 'RPG',
     icon: '⚔️',
-    category: 'gaming',
+    category: TopicCategory.Gaming,
     description: 'Role-playing games',
     color: 'purple',
     tags: ['rpg', 'role-playing', 'story', 'gaming'],
   },
   {
-    key: 'strategy',
+    key: TopicEnum.Strategy,
     label: 'Strategy',
     icon: '🧠',
-    category: 'gaming',
+    category: TopicCategory.Gaming,
     description: 'Strategy games',
     color: 'blue',
     tags: ['strategy', 'tactics', 'planning', 'gaming'],
   },
   {
-    key: 'simulation',
+    key: TopicEnum.Simulation,
     label: 'Simulation',
     icon: '🎮',
-    category: 'gaming',
+    category: TopicCategory.Gaming,
     description: 'Simulation games',
     color: 'green',
     tags: ['simulation', 'realistic', 'gaming'],
@@ -274,46 +266,46 @@ export const TOPICS: Topic[] = [
 
   // News
   {
-    key: 'news',
+    key: TopicEnum.News,
     label: 'News',
     icon: '📰',
-    category: 'news',
+    category: TopicCategory.News,
     description: 'Breaking news and current events',
     color: 'blue',
     tags: ['news', 'current-events', 'breaking-news'],
   },
   {
-    key: 'world',
+    key: TopicEnum.World,
     label: 'World',
     icon: '🌍',
-    category: 'news',
+    category: TopicCategory.News,
     description: 'World news and international events',
     color: 'green',
     tags: ['world', 'international', 'global', 'news'],
   },
   {
-    key: 'politics',
+    key: TopicEnum.Politics,
     label: 'Politics',
     icon: '🗳️',
-    category: 'politics',
+    category: TopicCategory.Politics,
     description: 'Political news and government',
     color: 'red',
     tags: ['politics', 'government', 'elections', 'policy'],
   },
   {
-    key: 'environment',
+    key: TopicEnum.Environment,
     label: 'Environment',
     icon: '🌍',
-    category: 'news',
+    category: TopicCategory.News,
     description: 'Environmental news and climate change',
     color: 'green',
     tags: ['environment', 'climate', 'sustainability', 'nature'],
   },
   {
-    key: 'health',
+    key: TopicEnum.Health,
     label: 'Health',
     icon: '🏥',
-    category: 'news',
+    category: TopicCategory.News,
     description: 'Health and medical news',
     color: 'red',
     tags: ['health', 'medical', 'wellness', 'medicine'],
@@ -321,64 +313,64 @@ export const TOPICS: Topic[] = [
 
   // Crypto
   {
-    key: 'crypto',
+    key: TopicEnum.Crypto,
     label: 'Crypto',
     icon: '₿',
-    category: 'crypto',
+    category: TopicCategory.Crypto,
     description: 'Cryptocurrency news and trends',
     color: 'yellow',
     tags: ['crypto', 'bitcoin', 'cryptocurrency', 'digital-currency'],
   },
   {
-    key: 'cryptocurrency',
+    key: TopicEnum.Cryptocurrency,
     label: 'Cryptocurrency',
     icon: '₿',
-    category: 'crypto',
+    category: TopicCategory.Crypto,
     description: 'Cryptocurrency markets and developments',
     color: 'yellow',
     tags: ['cryptocurrency', 'crypto', 'trading', 'blockchain'],
   },
   {
-    key: 'defi',
+    key: TopicEnum.DeFi,
     label: 'DeFi',
     icon: '🏦',
-    category: 'crypto',
+    category: TopicCategory.Crypto,
     description: 'Decentralized finance protocols',
     color: 'blue',
     tags: ['defi', 'decentralized-finance', 'yield-farming', 'crypto'],
   },
   {
-    key: 'meme-coins',
+    key: TopicEnum.MemeCoins,
     label: 'Meme Coins',
     icon: '🐕',
-    category: 'crypto',
+    category: TopicCategory.Crypto,
     description: 'Meme-based cryptocurrencies',
     color: 'yellow',
     tags: ['meme-coins', 'dogecoin', 'shiba', 'crypto'],
   },
   {
-    key: 'major-crypto',
+    key: TopicEnum.MajorCrypto,
     label: 'Major Crypto',
     icon: '₿',
-    category: 'crypto',
+    category: TopicCategory.Crypto,
     description: 'Major cryptocurrencies like Bitcoin and Ethereum',
     color: 'yellow',
     tags: ['bitcoin', 'ethereum', 'major-crypto', 'crypto'],
   },
   {
-    key: 'trending',
+    key: TopicEnum.Trending,
     label: 'Trending',
     icon: '📈',
-    category: 'crypto',
+    category: TopicCategory.Crypto,
     description: 'Trending cryptocurrencies',
     color: 'green',
     tags: ['trending', 'gaining', 'crypto', 'markets'],
   },
   {
-    key: 'declining',
+    key: TopicEnum.Declining,
     label: 'Declining',
     icon: '📉',
-    category: 'crypto',
+    category: TopicCategory.Crypto,
     description: 'Declining cryptocurrencies',
     color: 'red',
     tags: ['declining', 'losing', 'crypto', 'markets'],
@@ -386,28 +378,28 @@ export const TOPICS: Topic[] = [
 
   // Lifestyle
   {
-    key: 'lifestyle',
+    key: TopicEnum.Lifestyle,
     label: 'Lifestyle',
     icon: '🏠',
-    category: 'lifestyle',
+    category: TopicCategory.Lifestyle,
     description: 'Lifestyle and personal development',
     color: 'pink',
     tags: ['lifestyle', 'personal-development', 'wellness', 'life'],
   },
   {
-    key: 'culture',
+    key: TopicEnum.Culture,
     label: 'Culture',
     icon: '🎭',
-    category: 'lifestyle',
+    category: TopicCategory.Lifestyle,
     description: 'Cultural trends and social movements',
     color: 'purple',
     tags: ['culture', 'society', 'trends', 'social'],
   },
   {
-    key: 'social-media',
+    key: TopicEnum.SocialMedia,
     label: 'Social Media',
     icon: '📱',
-    category: 'lifestyle',
+    category: TopicCategory.Lifestyle,
     description: 'Social media trends and platforms',
     color: 'blue',
     tags: ['social-media', 'platforms', 'trends', 'viral'],
@@ -415,26 +407,17 @@ export const TOPICS: Topic[] = [
 
   // Sports
   {
-    key: 'sports',
+    key: TopicEnum.Sports,
     label: 'Sports',
     icon: '⚽',
-    category: 'sports',
+    category: TopicCategory.Sports,
     description: 'Sports news and athletic events',
     color: 'green',
     tags: ['sports', 'athletics', 'competition', 'fitness'],
   },
 ]
 
-// Helper functions
-export const getTopicByKey = (key: string): Topic | undefined => {
-  return TOPICS.find((topic) => topic.key === key)
-}
-
-export const getTopicsByCategory = (category: Topic['category']): Topic[] => {
-  return TOPICS.filter((topic) => topic.category === category)
-}
-
-export const getTopicKeys = (): string[] => {
+export const getTopicKeys = (): TopicEnum[] => {
   return TOPICS.map((topic) => topic.key)
 }
 
@@ -442,8 +425,8 @@ export const getTopicLabels = (): string[] => {
   return TOPICS.map((topic) => topic.label)
 }
 
-export const getTopicIcons = (): Record<string, string> => {
-  const icons: Record<string, string> = {}
+export const getTopicIcons = (): { [key: string]: string } => {
+  const icons: { [key: string]: string } = {}
   TOPICS.forEach((topic) => {
     icons[topic.key] = topic.icon
   })
@@ -452,28 +435,28 @@ export const getTopicIcons = (): Record<string, string> => {
 
 // Topic categories
 export const TOPIC_CATEGORIES = {
-  general: 'General',
-  technology: 'Technology',
-  entertainment: 'Entertainment',
-  finance: 'Finance',
-  gaming: 'Gaming',
-  news: 'News',
-  crypto: 'Cryptocurrency',
-  lifestyle: 'Lifestyle',
-  sports: 'Sports',
-  politics: 'Politics',
+  [TopicCategory.General]: 'General',
+  [TopicCategory.Technology]: 'Technology',
+  [TopicCategory.Entertainment]: 'Entertainment',
+  [TopicCategory.Finance]: 'Finance',
+  [TopicCategory.Gaming]: 'Gaming',
+  [TopicCategory.News]: 'News',
+  [TopicCategory.Crypto]: 'Cryptocurrency',
+  [TopicCategory.Lifestyle]: 'Lifestyle',
+  [TopicCategory.Sports]: 'Sports',
+  [TopicCategory.Politics]: 'Politics',
 } as const
 
 // Topic colors
 export const TOPIC_COLORS = {
-  general: 'gray',
-  technology: 'blue',
-  entertainment: 'purple',
-  finance: 'green',
-  gaming: 'purple',
-  news: 'blue',
-  crypto: 'yellow',
-  lifestyle: 'pink',
-  sports: 'green',
-  politics: 'red',
+  [TopicCategory.General]: 'gray',
+  [TopicCategory.Technology]: 'blue',
+  [TopicCategory.Entertainment]: 'purple',
+  [TopicCategory.Finance]: 'green',
+  [TopicCategory.Gaming]: 'purple',
+  [TopicCategory.News]: 'blue',
+  [TopicCategory.Crypto]: 'yellow',
+  [TopicCategory.Lifestyle]: 'pink',
+  [TopicCategory.Sports]: 'green',
+  [TopicCategory.Politics]: 'red',
 } as const

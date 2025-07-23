@@ -1,43 +1,55 @@
-export interface Topic {
-  platform: string
+import { Platform, Topic, PlatformCategory, TopicCategory } from '@/lib/constants/enums'
+
+export interface TrendingTopic {
+  id?: string
+  platform: Platform
   title: string
   description: string
   url: string
   score: number
   engagement: number
-  category: string
-  tags: string[]
-  topic: string
-  author: string
   timestamp: string
+  category: string
+  topic: Topic
+  tags: string[]
+  author: string
+  created_at?: string
 }
 
 export interface Stats {
-  platform_stats: { [key: string]: number }
-  category_stats: { [key: string]: number }
   total_topics_7d: number
   total_topics_all_time: number
+  platform_stats: Record<Platform, number>
+  category_stats: Record<Topic, number>
 }
 
 export interface PlatformFilterProps {
-  selectedPlatforms: string[]
-  onPlatformChange: (platforms: string[]) => void
-  topics: Topic[]
+  selectedPlatforms: Platform[]
+  onPlatformChange: (platforms: Platform[]) => void
+  topics: TrendingTopic[]
   stats?: Stats
   loading?: boolean
+  selectedTopics?: Topic[] // Add selectedTopics for dynamic counting
 }
 
 export interface TopicFilterProps {
-  selectedTopics: string[]
-  onTopicChange: (topics: string[]) => void
-  selectedPlatforms: string[]
-  allTopics: Topic[]
+  selectedTopics: Topic[]
+  onTopicChange: (topics: Topic[]) => void
+  selectedPlatforms?: Platform[]
+  allTopics?: TrendingTopic[]
   stats?: Stats
   loading?: boolean
 }
 
+export interface SortFilterProps {
+  selectedSort: string
+  onSortChange: (sort: string) => void
+  selectedOrder: string
+  onOrderChange: (order: string) => void
+}
+
 export interface TrendingCardProps {
-  topic: Topic
+  topic: TrendingTopic
   rank: number
   className?: string
   style?: React.CSSProperties
@@ -47,13 +59,12 @@ export interface StatsCardProps {
   title: string
   value: number
   icon: React.ReactNode
-  color: 'blue' | 'green' | 'red' | 'orange' | 'purple' | 'yellow' | 'gray' | 'pink'
+  color: 'blue' | 'green' | 'red' | 'yellow' | 'purple' | 'orange' | 'gray'
   className?: string
 }
 
-export interface SortFilterProps {
-  selectedSort: string
-  onSortChange: (sort: string) => void
-  selectedOrder: string
-  onOrderChange: (order: string) => void
+export interface PlatformIconProps {
+  platform: Platform
+  size?: number
+  className?: string
 }

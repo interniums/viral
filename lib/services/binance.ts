@@ -1,3 +1,6 @@
+import { BaseService } from './base'
+import { Platform, Topic } from '../constants/enums'
+
 interface BinanceTicker {
   symbol: string
   priceChange: string
@@ -23,7 +26,7 @@ interface BinanceTicker {
 }
 
 interface BinanceTopic {
-  platform: string
+  platform: Platform
   title: string
   description: string
   url: string
@@ -32,11 +35,11 @@ interface BinanceTopic {
   timestamp: string
   category: string
   tags: string[]
-  topic: string
+  topic: Topic
   author: string
 }
 
-export class BinanceService {
+export class BinanceService extends BaseService {
   private baseUrl = 'https://api.binance.com/api/v3'
 
   async fetchTrendingTopics(limit = 50): Promise<BinanceTopic[]> {
@@ -125,18 +128,18 @@ export class BinanceService {
 
   private transformTickers(tickers: BinanceTicker[]): BinanceTopic[] {
     return tickers.map((ticker) => ({
-      platform: 'Binance',
-      title: `${ticker.symbol} - ${parseFloat(ticker.priceChangePercent).toFixed(2)}%`,
-      description: `${ticker.symbol} is trading at $${parseFloat(ticker.lastPrice).toFixed(
-        4
-      )} with 24h volume of $${this.formatVolume(ticker.quoteVolume)}`,
+      platform: Platform.Binance,
+      title: `${ticker.symbol} ${parseFloat(ticker.priceChangePercent)}%`,
+      description: `Trading at $${parseFloat(ticker.lastPrice).toFixed(4)} | Volume: $${this.formatVolume(
+        ticker.quoteVolume
+      )}`,
       url: `https://www.binance.com/en/trade/${ticker.symbol}`,
       score: this.calculateScore(ticker),
-      engagement: this.calculateEngagement(ticker),
+      engagement: parseFloat(ticker.priceChangePercent), // Use price change for engagement
       timestamp: new Date().toISOString(),
       category: this.detectCategory(ticker),
       tags: this.extractTags(ticker),
-      topic: 'cryptocurrency',
+      topic: Topic.Cryptocurrency,
       author: 'Binance Market Data',
     }))
   }
@@ -304,7 +307,7 @@ export class BinanceService {
     ]
 
     return demoTickers.slice(0, limit).map((ticker, index) => ({
-      platform: 'Binance',
+      platform: Platform.Binance,
       title: `${ticker.symbol} - ${ticker.priceChangePercent}%`,
       description: `${ticker.symbol} is trading at $${ticker.lastPrice} with 24h volume of $${this.formatVolume(
         ticker.quoteVolume
@@ -315,7 +318,7 @@ export class BinanceService {
       timestamp: new Date().toISOString(),
       category: ticker.category,
       tags: ticker.tags,
-      topic: 'cryptocurrency',
+      topic: Topic.Cryptocurrency,
       author: 'Binance Market Data',
     }))
   }

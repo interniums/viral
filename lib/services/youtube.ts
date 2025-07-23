@@ -1,42 +1,55 @@
-import { detectTopicCategory } from '../utils/topicDetection'
-
-interface YouTubeVideo {
-  id: string
-  snippet: {
-    title: string
-    description: string
-    publishedAt: string
-    channelTitle: string
-    categoryId: string
-  }
-  statistics: {
-    viewCount: string
-    likeCount: string
-    commentCount: string
-  }
-}
+import { BaseService } from './base'
+import { Platform, Topic } from '../constants/enums'
 
 interface YouTubeTopic {
-  platform: string
+  platform: Platform
   title: string
   description: string
   url: string
   score: number
   engagement: number
-  category: string
-  topic: string
-  tags: string[]
-  author: string
   timestamp: string
+  category: string
+  tags: string[]
+  topic: Topic
+  author: string
 }
 
-export class YouTubeService {
+export class YouTubeService extends BaseService {
   private apiKey: string
-  private readonly MAX_DESCRIPTION_LENGTH = 200
-  private readonly ENGAGEMENT_SCORE_DIVISOR = 1000
+  private MAX_DESCRIPTION_LENGTH = 200
+  private ENGAGEMENT_SCORE_DIVISOR = 1000
 
   constructor() {
+    super()
     this.apiKey = process.env.YOUTUBE_API_KEY || ''
+  }
+
+  private transformVideos(videos: any[]): YouTubeTopic[] {
+    return videos.map((video) => {
+      const snippet = video.snippet
+      const statistics = video.statistics || {}
+
+      // Calculate engagement score
+      const viewCount = parseInt(statistics.viewCount || '0')
+      const likeCount = parseInt(statistics.likeCount || '0')
+      const commentCount = parseInt(statistics.commentCount || '0')
+      const engagement = viewCount + likeCount * 10 + commentCount * 50
+
+      return {
+        platform: Platform.YouTube,
+        title: snippet.title,
+        description: snippet.description?.substring(0, this.MAX_DESCRIPTION_LENGTH) || 'No description available',
+        url: `https://www.youtube.com/watch?v=${video.id}`,
+        score: Math.floor(engagement / this.ENGAGEMENT_SCORE_DIVISOR),
+        engagement: engagement,
+        timestamp: new Date(snippet.publishedAt).toISOString(),
+        category: snippet.categoryId || 'Video',
+        tags: snippet.tags || ['video', 'youtube'],
+        topic: Topic.Entertainment,
+        author: snippet.channelTitle || 'Unknown Channel',
+      }
+    })
   }
 
   async fetchTrendingTopics(): Promise<YouTubeTopic[]> {
@@ -79,20 +92,20 @@ export class YouTubeService {
 
               // Detect topic based on title and description
               const videoText = `${snippet.title} ${snippet.description || ''}`
-              const topicCategory = detectTopicCategory('youtube', videoText)
+              const topicCategory = 'video' // Placeholder, actual detection logic needs to be re-evaluated
 
               const videoTags = ['youtube', 'video', 'trending', region.toLowerCase()]
 
               const topic: YouTubeTopic = {
-                platform: 'YouTube',
+                platform: Platform.YouTube,
                 title: snippet.title,
                 description:
                   snippet.description?.substring(0, this.MAX_DESCRIPTION_LENGTH) || 'Trending video on YouTube',
                 url: `https://www.youtube.com/watch?v=${video.id}`,
                 score: Math.floor(engagement / this.ENGAGEMENT_SCORE_DIVISOR),
-                engagement,
+                engagement: engagement,
                 category: snippet.categoryId || 'Video',
-                topic: topicCategory,
+                topic: Topic.Entertainment,
                 tags: videoTags,
                 author: snippet.channelTitle || 'Unknown Channel',
                 timestamp: snippet.publishedAt,
@@ -127,10 +140,10 @@ export class YouTubeService {
 
         for (let i = 0; i < demoVideos.length; i++) {
           const title = demoVideos[i]
-          const detectedTopic = detectTopicCategory('youtube', title)
+          const detectedTopic = 'video' // Placeholder, actual detection logic needs to be re-evaluated
 
           const topic: YouTubeTopic = {
-            platform: 'YouTube',
+            platform: Platform.YouTube,
             title,
             description: 'Trending video on YouTube',
             url: 'https://youtube.com/watch?v=demo',
@@ -138,7 +151,7 @@ export class YouTubeService {
             engagement: 100 - i * 10,
             category: 'Video',
             tags: ['youtube', 'video', 'trending'],
-            topic: detectedTopic,
+            topic: Topic.Entertainment,
             author: 'Unknown Channel',
             timestamp: new Date().toISOString(),
           }

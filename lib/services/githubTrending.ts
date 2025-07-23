@@ -1,3 +1,6 @@
+import { BaseService } from './base'
+import { Platform, Topic } from '../constants/enums'
+
 interface GitHubTrendingRepo {
   author: string
   name: string
@@ -17,7 +20,7 @@ interface GitHubTrendingRepo {
 }
 
 interface GitHubTrendingTopic {
-  platform: string
+  platform: Platform
   title: string
   description: string
   url: string
@@ -26,12 +29,28 @@ interface GitHubTrendingTopic {
   timestamp: Date
   category: string
   tags: string[]
-  topic: string
+  topic: Topic
   author: string
 }
 
-export class GitHubTrendingService {
+export class GitHubTrendingService extends BaseService {
   private baseUrl = 'https://api.github.com'
+
+  private transformRepos(repos: any[]): GitHubTrendingTopic[] {
+    return repos.map((repo: any) => ({
+      platform: Platform.GitHub,
+      title: repo.full_name,
+      description: repo.description || 'No description available',
+      url: repo.html_url,
+      score: repo.stargazers_count,
+      engagement: repo.forks_count,
+      timestamp: new Date(repo.created_at),
+      category: this.detectCategory(repo.language || '', repo.description || ''),
+      tags: this.extractTags(repo.language || '', repo.description || '', repo.topics || []),
+      topic: Topic.OpenSource,
+      author: repo.owner.login,
+    }))
+  }
 
   async fetchTrendingTopics(limit = 50): Promise<GitHubTrendingTopic[]> {
     try {
@@ -58,19 +77,7 @@ export class GitHubTrendingService {
       const repos = data.items
 
       // Transform to our format
-      const trendingTopics: GitHubTrendingTopic[] = repos.map((repo: any) => ({
-        platform: 'GitHub',
-        title: repo.full_name,
-        description: repo.description || 'No description available',
-        url: repo.html_url,
-        score: repo.stargazers_count,
-        engagement: repo.forks_count,
-        timestamp: new Date(repo.created_at),
-        category: this.detectCategory(repo.language || '', repo.description || ''),
-        tags: this.extractTags(repo.language || '', repo.description || '', repo.topics || []),
-        topic: 'open-source',
-        author: repo.owner.login,
-      }))
+      const trendingTopics: GitHubTrendingTopic[] = this.transformRepos(repos)
 
       return trendingTopics
     } catch (error) {
@@ -157,65 +164,17 @@ export class GitHubTrendingService {
   private getDemoData(limit: number): GitHubTrendingTopic[] {
     const demoRepos = [
       {
-        author: 'facebook',
-        name: 'react',
-        description: 'The library for web and native user interfaces',
-        url: 'https://github.com/facebook/react',
-        stars: 200000,
-        forks: 42000,
-        language: 'JavaScript',
-      },
-      {
-        author: 'microsoft',
-        name: 'vscode',
+        full_name: 'microsoft/vscode',
         description: 'Visual Studio Code',
-        url: 'https://github.com/microsoft/vscode',
-        stars: 150000,
-        forks: 26000,
+        stargazers_count: 150000,
+        forks_count: 25000,
         language: 'TypeScript',
-      },
-      {
-        author: 'openai',
-        name: 'whisper',
-        description: 'Robust Speech Recognition via Large-Scale Weak Supervision',
-        url: 'https://github.com/openai/whisper',
-        stars: 45000,
-        forks: 5000,
-        language: 'Python',
-      },
-      {
-        author: 'vercel',
-        name: 'next.js',
-        description: 'The React Framework for Production',
-        url: 'https://github.com/vercel/next.js',
-        stars: 100000,
-        forks: 22000,
-        language: 'JavaScript',
-      },
-      {
-        author: 'tailwindlabs',
-        name: 'tailwindcss',
-        description: 'A utility-first CSS framework for rapid UI development',
-        url: 'https://github.com/tailwindlabs/tailwindcss',
-        stars: 70000,
-        forks: 3600,
-        language: 'CSS',
+        created_at: '2015-04-29T11:00:00Z',
+        owner: { login: 'microsoft' },
+        topics: ['editor', 'typescript', 'electron'],
       },
     ]
-
-    return demoRepos.slice(0, limit).map((repo) => ({
-      platform: 'GitHub',
-      title: `${repo.author}/${repo.name}`,
-      description: repo.description,
-      url: repo.url,
-      score: repo.stars,
-      engagement: repo.forks,
-      timestamp: new Date(),
-      category: this.detectCategory(repo.language, repo.description),
-      tags: this.extractTags(repo.language, repo.description),
-      topic: 'open-source',
-      author: repo.author,
-    }))
+    return this.transformRepos(demoRepos.slice(0, limit))
   }
 }
 

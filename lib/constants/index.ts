@@ -1,60 +1,60 @@
-// Export all platform constants
-export * from './platforms'
+import { Platform, Topic, PlatformCategory, TopicCategory } from './enums'
+import { PLATFORMS } from './platforms'
+import { TOPICS } from './topics'
 
-// Export all topic constants
-export * from './topics'
+// App configuration (consolidated from lib/constants.ts)
+export const APP_CONFIG = {
+  INITIAL_DISPLAY_COUNT: 100,
+  LOAD_MORE_INCREMENT: 100,
+  SCROLL_THRESHOLD: 300,
+  DB_CHECK_INTERVAL: 60000, // 1 minute - check for database updates
+  SKELETON_HEIGHT: 120,
+} as const
 
-// Re-export existing constants
-export * from '../constants'
-
-// Combined helper functions
-import { PLATFORMS, getPlatformKeys, getPlatformLabels } from './platforms'
-import { TOPICS, getTopicKeys, getTopicLabels, getTopicIcons } from './topics'
-
-// Combined platform and topic data
-export const ALL_PLATFORMS = PLATFORMS
-export const ALL_TOPICS = TOPICS
-
-// Combined helper functions
-export const getAllPlatformKeys = getPlatformKeys
-export const getAllPlatformLabels = getPlatformLabels
-export const getAllTopicKeys = getTopicKeys
-export const getAllTopicLabels = getTopicLabels
-export const getAllTopicIcons = getTopicIcons
-
-// Platform and topic counts
-export const PLATFORM_COUNT = PLATFORMS.length
-export const TOPIC_COUNT = TOPICS.length
-
-// Default selections
-export const DEFAULT_PLATFORMS = getPlatformKeys().slice(0, 3) // First 3 platforms
-export const DEFAULT_TOPICS = getTopicKeys().slice(0, 11) // First 11 topics
+// Platform metadata
+export const PLATFORM_COUNT = Object.keys(Platform).length
 
 // Platform and topic metadata
 export const PLATFORM_METADATA = {
   total: PLATFORM_COUNT,
-  categories: 6, // social, news, tech, gaming, crypto, entertainment
+  categories: Object.keys(PlatformCategory).length,
   apiRequired: PLATFORMS.filter((p) => p.apiRequired).length,
   demoOnly: PLATFORMS.filter((p) => p.status === 'demo').length,
   active: PLATFORMS.filter((p) => p.status === 'active').length,
 }
 
-export const TOPIC_METADATA = {
-  total: TOPIC_COUNT,
-  categories: 10, // general, technology, entertainment, finance, gaming, news, crypto, lifestyle, sports, politics
-  technology: TOPICS.filter((t) => t.category === 'technology').length,
-  gaming: TOPICS.filter((t) => t.category === 'gaming').length,
-  crypto: TOPICS.filter((t) => t.category === 'crypto').length,
-  news: TOPICS.filter((t) => t.category === 'news').length,
-}
+// API endpoints
+export const API_ENDPOINTS = {
+  TRENDING_ALL: '/api/trending/all',
+  TRENDING: '/api/trending',
+  STATS: '/api/stats',
+  LAST_UPDATE: '/api/last-update',
+  CLEANUP: '/api/cleanup',
+  UPDATE_TRIGGER: '/api/update/trigger',
+  UPDATE_DATABASE: '/api/cron/update-database',
+} as const
+
+// Storage keys
+export const STORAGE_KEYS = {
+  LAST_UPDATE: 'last_update',
+  LAST_DB_UPDATE: 'last_db_update',
+} as const
+
+// Cache keys
+export const CACHE_KEYS = {
+  trending_topics: 'trending_topics',
+  platform_stats: 'platform_stats',
+  topic_stats: 'topic_stats',
+  last_update: 'last_update',
+} as const
 
 // Validation functions
-export const isValidPlatform = (platform: string): boolean => {
-  return PLATFORMS.some((p) => p.key === platform)
+export const isValidPlatform = (platform: string): platform is Platform => {
+  return Object.values(Platform).includes(platform as Platform)
 }
 
-export const isValidTopic = (topic: string): boolean => {
-  return TOPICS.some((t) => t.key === topic)
+export const isValidTopic = (topic: string): topic is Topic => {
+  return Object.values(Topic).includes(topic as Topic)
 }
 
 // Search functions
@@ -74,27 +74,17 @@ export const searchTopics = (query: string) => {
     (topic) =>
       topic.label.toLowerCase().includes(lowerQuery) ||
       topic.description.toLowerCase().includes(lowerQuery) ||
-      topic.category.toLowerCase().includes(lowerQuery) ||
-      topic.tags.some((tag) => tag.toLowerCase().includes(lowerQuery))
+      topic.category.toLowerCase().includes(lowerQuery)
   )
 }
 
 // Category-based filtering
-export const getPlatformsByCategory = (category: string) => {
+export const getPlatformsByCategory = (category: PlatformCategory) => {
   return PLATFORMS.filter((platform) => platform.category === category)
 }
 
-export const getTopicsByCategory = (category: string) => {
+export const getTopicsByCategory = (category: TopicCategory) => {
   return TOPICS.filter((topic) => topic.category === category)
-}
-
-// API requirement checking
-export const getPlatformsRequiringAPI = () => {
-  return PLATFORMS.filter((platform) => platform.apiRequired)
-}
-
-export const getPlatformsNotRequiringAPI = () => {
-  return PLATFORMS.filter((platform) => !platform.apiRequired)
 }
 
 // Status-based filtering
@@ -102,39 +92,8 @@ export const getActivePlatforms = () => {
   return PLATFORMS.filter((platform) => platform.status === 'active')
 }
 
-export const getDemoPlatforms = () => {
-  return PLATFORMS.filter((platform) => platform.status === 'demo')
-}
+// Export enums
+export { Platform, Topic, PlatformCategory, TopicCategory }
 
-// Color utilities
-export const getPlatformColor = (platformKey: string): string => {
-  const platform = PLATFORMS.find((p) => p.key === platformKey)
-  return platform?.color || 'gray'
-}
-
-export const getTopicColor = (topicKey: string): string => {
-  const topic = TOPICS.find((t) => t.key === topicKey)
-  return topic?.color || 'gray'
-}
-
-// Icon utilities
-export const getPlatformIcon = (platformKey: string): string => {
-  const platform = PLATFORMS.find((p) => p.key === platformKey)
-  return platform?.icon || '/images/platforms/default.svg'
-}
-
-export const getTopicIcon = (topicKey: string): string => {
-  const topic = TOPICS.find((t) => t.key === topicKey)
-  return topic?.icon || '📌'
-}
-
-// Description utilities
-export const getPlatformDescription = (platformKey: string): string => {
-  const platform = PLATFORMS.find((p) => p.key === platformKey)
-  return platform?.description || 'Platform description not available'
-}
-
-export const getTopicDescription = (topicKey: string): string => {
-  const topic = TOPICS.find((t) => t.key === topicKey)
-  return topic?.description || 'Topic description not available'
-}
+// Export platform and topic data
+export { PLATFORMS, TOPICS }

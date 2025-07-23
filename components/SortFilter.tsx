@@ -1,10 +1,37 @@
 import { SortFilterProps } from '../types'
 
+export function SortFilterSkeleton() {
+  return (
+    <div className="flex items-center space-x-3 bg-white rounded-lg shadow-sm border border-gray-200 px-4 py-3 text-sm">
+      {/* Sort By */}
+      <div className="flex items-center space-x-2">
+        <div className="h-4 w-8 bg-gray-200 rounded animate-pulse hidden sm:block" />
+        <div className="flex space-x-2">
+          {/* Three sort option buttons */}
+          <div className="w-10 h-8 bg-gray-200 rounded-md animate-pulse" />
+          <div className="w-10 h-8 bg-gray-200 rounded-md animate-pulse" />
+          <div className="w-10 h-8 bg-gray-200 rounded-md animate-pulse" />
+        </div>
+      </div>
+
+      {/* Order */}
+      <div className="flex items-center space-x-2">
+        <div className="h-4 w-10 bg-gray-200 rounded animate-pulse hidden sm:block" />
+        <div className="flex space-x-2">
+          {/* Two order option buttons */}
+          <div className="w-10 h-8 bg-gray-200 rounded-md animate-pulse" />
+          <div className="w-10 h-8 bg-gray-200 rounded-md animate-pulse" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function SortFilter({ selectedSort, onSortChange, selectedOrder, onOrderChange }: SortFilterProps) {
   const sortOptions = [
+    { value: 'timestamp', label: 'Date', icon: '📅' },
+    { value: 'engagement', label: 'Viral Score', icon: '🔥' },
     { value: 'random', label: 'Random', icon: '🎲' },
-    { value: 'engagement', label: 'Viral', icon: '🔥' },
-    { value: 'date', label: 'Date', icon: '📅' },
   ]
 
   const orderOptions = [
