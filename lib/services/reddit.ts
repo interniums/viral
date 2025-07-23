@@ -38,10 +38,16 @@ export class RedditService {
 
   private async getAccessToken(): Promise<string | null> {
     try {
+      if (!this.clientId || !this.clientSecret) {
+        console.error('Reddit credentials not configured')
+        return null
+      }
+
+      const auth = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64')
       const response = await fetch('https://www.reddit.com/api/v1/access_token', {
         method: 'POST',
         headers: {
-          Authorization: `Basic ${Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64')}`,
+          Authorization: `Basic ${auth}`,
           'Content-Type': 'application/x-www-form-urlencoded',
           'User-Agent': this.userAgent,
         },
@@ -49,7 +55,8 @@ export class RedditService {
       })
 
       if (!response.ok) {
-        console.error('Failed to get Reddit access token')
+        const error = await response.text()
+        console.error('Failed to get Reddit access token:', error)
         return null
       }
 

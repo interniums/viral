@@ -1,83 +1,57 @@
 import { supabase, type TrendingTopic, type DatabaseStats } from '../supabase'
-import { redditService } from './reddit'
-import { youtubeService } from './youtube'
-import { googleTrendsService } from './googleTrends'
 import { cacheManager, CACHE_KEYS } from '../cache'
 
 const DATABASE_RETENTION_DAYS = 7
 const MAX_TOPICS_PER_PLATFORM = 200
 const MAX_TOTAL_TOPICS = 500
 
+// Database cleanup configuration
+const CLEANUP_CONFIG = {
+  RETENTION_DAYS: 7,
+  BATCH_SIZE: 1000, // Delete in batches to avoid timeouts
+  CLEANUP_INTERVAL_HOURS: 24, // Run cleanup daily
+} as const
+
 export class DataFetcherService {
+  private services: Record<string, any> = {}
+
+  setServices(services: Record<string, any>) {
+    this.services = services
+  }
+
   async updateDatabaseWithFreshData(): Promise<void> {
     try {
       const freshData: Omit<TrendingTopic, 'id' | 'created_at'>[] = []
 
-      // 1. Fetch fresh Reddit data
-      try {
-        const redditTopics = await redditService.fetchTrendingTopics()
-        const redditData = redditTopics.slice(0, 50).map((topic) => ({
-          platform: topic.platform,
-          title: topic.title,
-          description: topic.description,
-          url: topic.url,
-          score: topic.score,
-          engagement: topic.engagement,
-          category: topic.category,
-          topic: topic.topic,
-          tags: topic.tags,
-          author: topic.author,
-          timestamp: new Date(topic.timestamp).toISOString(),
-        }))
-        freshData.push(...redditData)
-      } catch (error) {
-        console.error('Reddit API failed:', error)
+      // Fetch data from each service
+      for (const [serviceName, service] of Object.entries(this.services)) {
+        try {
+          console.log(`📡 Fetching from ${serviceName}...`)
+          const topics = await service.fetchTrendingTopics()
+          const data = topics.slice(0, 50).map((topic: any) => ({
+            platform: topic.platform,
+            title: topic.title,
+            description: topic.description,
+            url: topic.url,
+            score: Math.min(topic.score, 2147483647), // Max 32-bit integer
+            engagement: Math.min(topic.engagement, 2147483647), // Max 32-bit integer
+            category: topic.category,
+            topic: topic.topic,
+            tags: topic.tags,
+            author: topic.author,
+            timestamp: topic.timestamp,
+          }))
+          freshData.push(...data)
+          console.log(`✅ Fetched ${data.length} topics from ${serviceName}`)
+        } catch (error) {
+          console.error(`❌ ${serviceName} API failed:`, error)
+        }
       }
 
-      // 2. Fetch fresh Google Trends data
-      try {
-        const googleTrendsData = await googleTrendsService.fetchTrendingTopics()
-        const trendsData = googleTrendsData.map((topic) => ({
-          platform: topic.platform,
-          title: topic.title,
-          description: topic.description,
-          url: topic.url,
-          score: topic.score,
-          engagement: topic.engagement,
-          category: topic.category,
-          topic: topic.topic,
-          tags: topic.tags,
-          author: topic.author,
-          timestamp: new Date(topic.timestamp).toISOString(),
-        }))
-        freshData.push(...trendsData)
-      } catch (error) {
-        console.error('Google Trends API failed:', error)
-      }
-
-      // 3. Fetch fresh YouTube data
-      try {
-        const youtubeTopics = await youtubeService.fetchTrendingTopics()
-        const youtubeData = youtubeTopics.slice(0, 20).map((topic) => ({
-          platform: topic.platform,
-          title: topic.title,
-          description: topic.description,
-          url: topic.url,
-          score: topic.score,
-          engagement: topic.engagement,
-          category: topic.category,
-          topic: topic.topic,
-          tags: topic.tags,
-          author: topic.author,
-          timestamp: new Date(topic.timestamp).toISOString(),
-        }))
-        freshData.push(...youtubeData)
-      } catch (error) {
-        console.error('YouTube API failed:', error)
-      }
-
-      // 4. Update database with fresh data
+      // Update database with fresh data
       if (freshData.length > 0) {
+        console.log(`\n💾 Writing ${freshData.length} topics to database...`)
+
         // Remove old data (older than DATABASE_RETENTION_DAYS days)
         const weekAgo = new Date()
         weekAgo.setDate(weekAgo.getDate() - DATABASE_RETENTION_DAYS)
@@ -89,25 +63,66 @@ export class DataFetcherService {
           .lt('timestamp', weekAgo.toISOString())
 
         if (deleteError) {
+          if (deleteError.code === '42P01') {
+            console.warn('Database table does not exist yet. Please run the Supabase setup script.')
+            return
+          }
           console.error('Error deleting old data:', deleteError)
         }
 
-        // Insert fresh data
-        const { error: insertError } = await supabase.from('trending_topics').insert(freshData)
+        // Insert data in batches to avoid timeouts and handle duplicates
+        const batchSize = 50
+        const batches = []
+        for (let i = 0; i < freshData.length; i += batchSize) {
+          batches.push(freshData.slice(i, i + batchSize))
+        }
 
-        if (insertError) {
-          console.error('Error inserting fresh data:', insertError)
+        console.log(`📦 Processing ${batches.length} batches...`)
+
+        for (let i = 0; i < batches.length; i++) {
+          const batch = batches[i]
+          try {
+            // Try to insert the batch
+            const { error: insertError } = await supabase.from('trending_topics').insert(batch)
+
+            // If there's a duplicate key error, insert records one by one
+            if (insertError?.code === '23505') {
+              console.log(`⚠️ Batch ${i + 1} has duplicates, inserting individually...`)
+              for (const topic of batch) {
+                try {
+                  // Delete any existing record with the same platform and title
+                  await supabase
+                    .from('trending_topics')
+                    .delete()
+                    .eq('platform', topic.platform)
+                    .eq('title', topic.title)
+
+                  // Insert the new record
+                  await supabase.from('trending_topics').insert(topic)
+                } catch (error) {
+                  console.error(`Failed to insert topic: ${topic.title}`, error)
+                }
+              }
+            } else if (insertError) {
+              console.error(`Error inserting batch ${i + 1}:`, insertError)
+            } else {
+              console.log(`✅ Batch ${i + 1} inserted successfully`)
+            }
+          } catch (error) {
+            console.error(`Error processing batch ${i + 1}:`, error)
+          }
         }
 
         // Clear cache to force fresh data on next request
         cacheManager.clearCache()
+        console.log('\n✅ Database update completed')
       }
     } catch (error) {
       console.error('Background update failed:', error)
     }
   }
 
-  async fetchTrendingTopics(sortBy = 'random', sortOrder = 'desc'): Promise<TrendingTopic[]> {
+  async fetchTrendingTopics(sortBy = 'random', sortOrder = 'desc', limit = 100, offset = 0): Promise<TrendingTopic[]> {
     try {
       // Check cache first
       const cachedData = cacheManager.getCachedData<{ topics: TrendingTopic[]; timestamp: string }>(
@@ -140,7 +155,7 @@ export class DataFetcherService {
         .from('trending_topics')
         .select('*')
         .gte('timestamp', weekAgo.toISOString())
-        .limit(MAX_TOTAL_TOPICS)
+        .range(offset, offset + limit - 1)
 
       // Apply sorting
       if (sortBy === 'engagement') {
@@ -155,6 +170,11 @@ export class DataFetcherService {
       const { data: results, error } = await query
 
       if (error) {
+        // Check if it's a table doesn't exist error
+        if (error.code === '42P01') {
+          console.warn('Database table does not exist yet. Please run the Supabase setup script.')
+          return []
+        }
         console.error('Error fetching from Supabase:', error)
         return []
       }
@@ -184,14 +204,16 @@ export class DataFetcherService {
         }
       }
 
-      // Cache the results
-      const cacheData = {
-        topics: topics.slice(0, MAX_TOTAL_TOPICS),
-        timestamp: new Date().toISOString(),
+      // Cache the results (only for first page to avoid cache conflicts)
+      if (offset === 0) {
+        const cacheData = {
+          topics: topics.slice(0, MAX_TOTAL_TOPICS),
+          timestamp: new Date().toISOString(),
+        }
+        cacheManager.setCachedData(CACHE_KEYS.trending_topics, cacheData)
       }
-      cacheManager.setCachedData(CACHE_KEYS.trending_topics, cacheData)
 
-      return topics.slice(0, MAX_TOTAL_TOPICS)
+      return topics
     } catch (error) {
       console.error('Error fetching trending topics:', error)
       return []
@@ -203,51 +225,50 @@ export class DataFetcherService {
       const weekAgo = new Date()
       weekAgo.setDate(weekAgo.getDate() - 7)
 
-      // Platform distribution (last 7 days)
-      const { data: platformStats, error: platformError } = await supabase
-        .from('trending_topics')
-        .select('platform')
-        .gte('timestamp', weekAgo.toISOString())
+      // Get platform counts from database using raw SQL
+      const { data: platformStats, error: platformError } = await supabase.rpc('get_platform_stats', { days_ago: 7 })
 
       if (platformError) {
         console.error('Error fetching platform stats:', platformError)
         return {
-          total_topics: 0,
-          platforms: {},
-          categories: {},
-          last_update: new Date().toISOString(),
+          total_topics_7d: 0,
+          total_topics_all_time: 0,
+          platform_stats: {},
+          category_stats: {},
         }
       }
 
+      // Convert to required format
       const platformStatsMap: Record<string, number> = {}
-      platformStats?.forEach((item) => {
-        platformStatsMap[item.platform] = (platformStatsMap[item.platform] || 0) + 1
+      platformStats?.forEach((item: { platform: string; count: number }) => {
+        platformStatsMap[item.platform] = item.count
       })
 
-      // Top categories (last 7 days)
-      const { data: categoryStats, error: categoryError } = await supabase
-        .from('trending_topics')
-        .select('category')
-        .gte('timestamp', weekAgo.toISOString())
+      // Get topic counts from database using raw SQL
+      const { data: topicStats, error: topicError } = await supabase.rpc('get_topic_stats', { days_ago: 7 })
 
-      if (categoryError) {
-        console.error('Error fetching category stats:', categoryError)
+      if (topicError) {
+        console.error('Error fetching topic stats:', topicError)
         return {
-          total_topics: 0,
-          platforms: {},
-          categories: {},
-          last_update: new Date().toISOString(),
+          total_topics_7d: 0,
+          total_topics_all_time: 0,
+          platform_stats: {},
+          category_stats: {},
         }
       }
 
-      const categoryStatsMap: Record<string, number> = {}
-      categoryStats?.forEach((item) => {
-        if (item.category) {
-          categoryStatsMap[item.category] = (categoryStatsMap[item.category] || 0) + 1
+      // Convert to required format
+      const topicStatsMap: Record<string, number> = {}
+      topicStats?.forEach((item: { topic: string; count: number }) => {
+        if (item.topic) {
+          topicStatsMap[item.topic] = item.count
         }
       })
 
-      // Total topics in database (all time)
+      // Get total topics in last 7 days
+      const totalTopics7d = Object.values(platformStatsMap).reduce((sum, count) => sum + count, 0)
+
+      // Get total topics all time
       const { count: totalTopicsAllTime, error: totalError } = await supabase
         .from('trending_topics')
         .select('*', { count: 'exact', head: true })
@@ -255,29 +276,137 @@ export class DataFetcherService {
       if (totalError) {
         console.error('Error fetching total topics:', totalError)
         return {
-          total_topics: 0,
-          platforms: {},
-          categories: {},
-          last_update: new Date().toISOString(),
+          total_topics_7d: totalTopics7d,
+          total_topics_all_time: totalTopics7d,
+          platform_stats: platformStatsMap,
+          category_stats: topicStatsMap,
         }
       }
 
-      const totalTopics7d = Object.values(platformStatsMap).reduce((sum, count) => sum + count, 0)
-
       return {
-        total_topics: totalTopics7d,
-        platforms: platformStatsMap,
-        categories: categoryStatsMap,
-        last_update: new Date().toISOString(),
+        total_topics_7d: totalTopics7d,
+        total_topics_all_time: totalTopicsAllTime || 0,
+        platform_stats: platformStatsMap,
+        category_stats: topicStatsMap,
       }
     } catch (error) {
       console.error('Error fetching stats:', error)
       return {
-        total_topics: 0,
-        platforms: {},
-        categories: {},
-        last_update: new Date().toISOString(),
+        total_topics_7d: 0,
+        total_topics_all_time: 0,
+        platform_stats: {},
+        category_stats: {},
       }
+    }
+  }
+
+  /**
+   * Get total number of topics in the database
+   */
+  async getTotalTopicsCount(): Promise<number> {
+    try {
+      const { count, error } = await supabase.from('trending_topics').select('*', { count: 'exact', head: true })
+
+      if (error) {
+        console.error('Error getting total topics count:', error)
+        return 0
+      }
+
+      return count || 0
+    } catch (error) {
+      console.error('Error getting total topics count:', error)
+      return 0
+    }
+  }
+
+  /**
+   * Clean up old data from the database
+   * Removes data older than CLEANUP_CONFIG.RETENTION_DAYS days
+   */
+  async cleanupOldData(): Promise<{ deletedCount: number; error?: string }> {
+    try {
+      const cutoffDate = new Date()
+      cutoffDate.setDate(cutoffDate.getDate() - CLEANUP_CONFIG.RETENTION_DAYS)
+
+      console.log(`🧹 Starting database cleanup - removing data older than ${cutoffDate.toISOString()}`)
+
+      // First, count how many records will be deleted
+      const { count: totalToDelete, error: countError } = await supabase
+        .from('trending_topics')
+        .select('*', { count: 'exact', head: true })
+        .lt('timestamp', cutoffDate.toISOString())
+
+      if (countError) {
+        console.error('Error counting old records:', countError)
+        return { deletedCount: 0, error: countError.message }
+      }
+
+      if (!totalToDelete || totalToDelete === 0) {
+        console.log('✅ No old data to clean up')
+        return { deletedCount: 0 }
+      }
+
+      console.log(`🗑️ Found ${totalToDelete} records to delete`)
+
+      // Delete old data
+      const { error: deleteError } = await supabase
+        .from('trending_topics')
+        .delete()
+        .lt('timestamp', cutoffDate.toISOString())
+
+      if (deleteError) {
+        console.error('Error deleting old data:', deleteError)
+        return { deletedCount: 0, error: deleteError.message }
+      }
+
+      console.log(`✅ Successfully deleted ${totalToDelete} old records`)
+      return { deletedCount: totalToDelete }
+    } catch (error) {
+      console.error('Error during database cleanup:', error)
+      return {
+        deletedCount: 0,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }
+    }
+  }
+
+  /**
+   * Get database size information
+   */
+  async getDatabaseSize(): Promise<{ totalRecords: number; oldRecords: number; retentionDays: number }> {
+    try {
+      const cutoffDate = new Date()
+      cutoffDate.setDate(cutoffDate.getDate() - CLEANUP_CONFIG.RETENTION_DAYS)
+
+      // Get total records
+      const { count: totalRecords, error: totalError } = await supabase
+        .from('trending_topics')
+        .select('*', { count: 'exact', head: true })
+
+      if (totalError) {
+        console.error('Error counting total records:', totalError)
+        return { totalRecords: 0, oldRecords: 0, retentionDays: CLEANUP_CONFIG.RETENTION_DAYS }
+      }
+
+      // Get old records count
+      const { count: oldRecords, error: oldError } = await supabase
+        .from('trending_topics')
+        .select('*', { count: 'exact', head: true })
+        .lt('timestamp', cutoffDate.toISOString())
+
+      if (oldError) {
+        console.error('Error counting old records:', oldError)
+        return { totalRecords: totalRecords || 0, oldRecords: 0, retentionDays: CLEANUP_CONFIG.RETENTION_DAYS }
+      }
+
+      return {
+        totalRecords: totalRecords || 0,
+        oldRecords: oldRecords || 0,
+        retentionDays: CLEANUP_CONFIG.RETENTION_DAYS,
+      }
+    } catch (error) {
+      console.error('Error getting database size:', error)
+      return { totalRecords: 0, oldRecords: 0, retentionDays: CLEANUP_CONFIG.RETENTION_DAYS }
     }
   }
 }

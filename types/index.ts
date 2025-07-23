@@ -32,6 +32,7 @@ export interface TopicFilterProps {
   onTopicChange: (topics: string[]) => void
   selectedPlatforms: string[]
   allTopics: Topic[]
+  stats?: Stats
   loading?: boolean
 }
 
@@ -46,7 +47,7 @@ export interface StatsCardProps {
   title: string
   value: number
   icon: React.ReactNode
-  color: 'blue' | 'green' | 'red' | 'orange' | 'purple'
+  color: 'blue' | 'green' | 'red' | 'orange' | 'purple' | 'yellow' | 'gray' | 'pink'
   className?: string
 }
 

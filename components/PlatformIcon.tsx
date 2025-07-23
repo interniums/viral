@@ -1,4 +1,5 @@
 import Image from 'next/image'
+import { PLATFORMS } from '../lib/constants/index'
 
 interface PlatformIconProps {
   platform: string
@@ -6,15 +7,11 @@ interface PlatformIconProps {
   className?: string
 }
 
-const platformLogos = {
-  Reddit: '/images/platforms/reddit.svg',
-  YouTube: '/images/platforms/youtube.svg',
-  'Google Trends': '/images/platforms/google-trends.svg',
-  Instagram: '/images/platforms/instagram.svg',
-  Facebook: '/images/platforms/facebook.svg',
-  Telegram: '/images/platforms/telegram.svg',
-  Twitter: '/images/platforms/twitter.svg',
-}
+// Create platform logos object from centralized constants
+const platformLogos: Record<string, string> = {}
+PLATFORMS.forEach((platform) => {
+  platformLogos[platform.key] = platform.icon
+})
 
 export default function PlatformIcon({ platform, size = 24, className = '' }: PlatformIconProps) {
   const logoPath = platformLogos[platform as keyof typeof platformLogos]

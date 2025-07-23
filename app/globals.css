@@ -90,7 +90,11 @@
 
 @layer components {
   .card {
-    @apply bg-white rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow duration-200;
+    @apply bg-white rounded-lg shadow-md border border-gray-200 transition-shadow duration-200;
+  }
+
+  .card-hover {
+    @apply hover:shadow-lg;
   }
 
   .btn-primary {
@@ -152,7 +156,7 @@
   }
 
   .trending-card {
-    @apply card p-6 cursor-pointer;
+    @apply card card-hover p-6 cursor-pointer;
     /* Prevent layout shift */
     min-height: 200px;
     box-sizing: border-box;
@@ -391,7 +395,7 @@
 
   /* Ensure skeleton cards maintain consistent dimensions */
   .stats-swiper .swiper-slide > div {
-    min-width: 200px;
+    min-width: 240px;
     min-height: 120px;
   }
 }

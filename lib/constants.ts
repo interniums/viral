@@ -1,24 +1,9 @@
 // App Configuration
 export const APP_CONFIG = {
-  DEFAULT_PLATFORMS: ['Reddit', 'YouTube', 'Google Trends'],
-  DEFAULT_TOPICS: [
-    'general',
-    'technology',
-    'sports',
-    'entertainment',
-    'politics',
-    'crypto',
-    'gaming',
-    'culture',
-    'finance',
-    'memes',
-    'lifestyle',
-  ],
-  INITIAL_DISPLAY_COUNT: 50,
-  LOAD_MORE_INCREMENT: 50,
+  INITIAL_DISPLAY_COUNT: 100,
+  LOAD_MORE_INCREMENT: 100,
   SCROLL_THRESHOLD: 300,
-  UPDATE_INTERVAL: 300000, // 5 minutes
-  DB_CHECK_INTERVAL: 60000, // 1 minute
+  DB_CHECK_INTERVAL: 60000, // 1 minute - check for database updates
   SKELETON_HEIGHT: 120,
 } as const
 
@@ -33,13 +18,6 @@ export const API_ENDPOINTS = {
 // Local Storage Keys
 export const STORAGE_KEYS = {
   LAST_DB_UPDATE: 'viral_last_db_update',
-} as const
-
-// Platform Colors
-export const PLATFORM_COLORS = {
-  Reddit: 'orange',
-  YouTube: 'red',
-  'Google Trends': 'orange',
 } as const
 
 // Sort Options

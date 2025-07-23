@@ -7,7 +7,7 @@ A modern, real-time viral trending topics aggregator built with Next.js, Supabas
 - **Real-time Trending Topics** - Live updates from multiple social platforms
 - **Analytics Dashboard** - Trending metrics and insights with platform-specific stats
 - **Modern UI/UX** - Beautiful, responsive design with dynamic filtering
-- **Auto-refresh** - Automatic content updates every 15 minutes via GitHub Actions
+- **Smart Updates** - Automatic content updates every 15 minutes via GitHub Actions with intelligent client-side polling
 - **Mobile Responsive** - Works perfectly on all devices
 - **Smart Filtering** - Filter by platform, topic, and sort options
 - **Serverless Architecture** - Built on Vercel with automatic scaling

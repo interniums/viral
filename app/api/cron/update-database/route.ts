@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { dataFetcherService } from '../../../../lib/services/dataFetcher'
 
+// Force dynamic rendering for this API route
+export const dynamic = 'force-dynamic'
+
 // This endpoint is called by GitHub Actions cron job
 // Runs every 15 minutes via GitHub Actions workflow
 export async function GET(request: Request) {
@@ -24,11 +27,27 @@ export async function GET(request: Request) {
     // Run the database update
     await dataFetcherService.updateDatabaseWithFreshData()
 
+    // Run database cleanup (every 24 hours)
+    const now = new Date()
+    const shouldCleanup = now.getHours() === 2 && now.getMinutes() < 15 // Run cleanup around 2 AM
+
+    if (shouldCleanup) {
+      console.log('🧹 Running scheduled database cleanup...')
+      const cleanupResult = await dataFetcherService.cleanupOldData()
+
+      if (cleanupResult.error) {
+        console.error('❌ Cleanup failed:', cleanupResult.error)
+      } else {
+        console.log(`✅ Cleanup completed - deleted ${cleanupResult.deletedCount} old records`)
+      }
+    }
+
     return NextResponse.json({
       success: true,
       message: 'Cron endpoint is working - database updated successfully',
       timestamp: new Date().toISOString(),
       source: 'github-actions',
+      cleanup: shouldCleanup ? 'scheduled' : 'skipped',
     })
   } catch (error) {
     console.error('❌ GitHub Actions cron job failed:', error)
